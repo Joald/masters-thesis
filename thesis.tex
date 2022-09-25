@@ -94,7 +94,7 @@
 % Tu jest dobre miejsce na Twoje własne makra i środowiska:
 
 \newtheorem{defi}{Definition}[section]
-\newcommand{\jcom}[1]{\textcolor{RoyalBlue}{[#1]}}
+\newcommand{\jcom}[1]{\textcolor{RoyalBlue}{[jo: #1]}}
 
 
 
@@ -264,6 +264,8 @@ Because the only other way to construct a record is through a regular constructo
 Omitting a given defaulted field is the only requirement for activating the mechanism. 
 Since omitting fields in record construction was already allowed (but produced a compile-time warning), no syntax change is necessary.
 
+\jcom{TODO: maybe talk about the possibility of defaulting multiple fields in one line, e.g. ''a = 1, b = 2, c = 3 :: Int'')}
+
 \section{Summary}
 Below is a complete example of a Haskell record type with one of its fields defaulted. 
 In our view, the final syntax combines the best compromise between readability, new user learning curve, and implementation viability.
@@ -383,9 +385,55 @@ The necessary changes made to the GHC code can be broken down into X parts:
   \item Desugarer
 \end{enumerate}
 
-\section{Changes to datatypes}
+\section{Changes to datatypes} \jcom{Maybe the sections below could use references to specific files?}
+
+\jcom{Now I realize that the fields should have been called default expressions in the code, not initializing expressions...}
 For the initial prototype we tried to keep the changes to existing internal GHC data structures to a minimum.
-First necessary change was to the \texttt{ConDeclField} type, which represents a single 
+First necessary change was to the \texttt{ConDeclField} type, which represents a single field of a record constructor.
+We modify it by adding a field called \texttt{cd\_fld\_ini} of type \texttt{Maybe (LHsExpr pass)}. 
+The \texttt{L} prefix in \texttt{LHsExpr} means that the expression contains information about its location in the source file.
+The \texttt{pass} parameter signifies the current phase of the compilation \jcom{ref. Trees that grow}.
+This modification allows us to pass the defaulting expression from the parser to the renamer.
+
+The renamer then moves information about types and their constructors from the data structures that represent abstract syntax to internal structures that are easier to work with.
+There, information about record fields is stored inside the \texttt{FieldLabel} type, to which we added a new field, \texttt{flIniExpr :: Maybe Name}.
+The \texttt{Name} refers to the generated name of the binding generated for the expression.
+
+\section{Parser}
+Parser uses Happy, a grammar-based parser generator for Haskell.
+The existing grammar node for record fields is called \texttt{fielddecl}.
+Its only production is \texttt{fielddecl : sig\_vars '::' ctype}.
+The above parses a comma-separated list of variable names, followed by the \texttt{::} operator, followed by the type of the field(s).
+The names are a list to allow for declaring multiple fields with the same type in one line, e.g. \texttt{a, b, c :: Foo}.
+We want to modify it to allow for \texttt{ = expr} between the name of the field and the type.
+One obvious solution would be to add another production producing \texttt{var '=' exp '::' ctype} (as we only want to allow a single name to be defaulted on one line).
+This unfortunately produces a reduce/reduce conflict, as \texttt{exp} can already contain a type signature. 
+We solve this conflict by extracting the production for an expression with a type signature to a separate node, \texttt{typedexp}.
+This allows us to parse \texttt{var '=' typedexp}, which forces a type signature and guarantees no conflicts.
+The aforementioned production is introduced as a new node, \texttt{varini}, for clarity.
+
+\section{Renamer}
+\subsection{Preprocessing}
+Before we start the renaming process, we want to make sure we are making as much use of existing GHC piping as possible.
+Thus, at the beginning of the renamer, we extract all of the default values for fields into separate bindings.
+In the type declarations, the user-provided expressions are then replaced (inside the \texttt{ConDeclField} structures) with simple variable expressions.
+The user-provided expressions are given freshly generated names and grouped together with other value declarations for the module.
+All the declarations are fed to the renamer in this way, and there the next phase of renaming proceeds.
+\subsection{Conversion}
+Early in the renaming process, the abstract syntax for type declarations is parsed into more convienient data structures.
+It is here that record selector functions are created and their names are placed inside the \texttt{FieldLabel} objects created alongside them.
+This means that it's the perfect place for inserting the names of the default expressions into the \texttt{FieldLabel}s.
+To do that, before checking individual constructors or fields, a mapping is constructed of all field names from a given type declaration to the names of their default expressions.
+\subsection{Missing fields detection}
+The fields that have been given default values should be excluded from both the list of missing strict fields (which produces an error when nonempty) and the list of missin nonstrict fields (which only produces a warning).
+When detecting if fields are missing, the algorithm compares the available \texttt{FieldLabel}s for the given constructor with the occurrences provided in a given expression.
+Thus, to exclude defaulted fields, it is sufficient to filter out the \texttt{FieldLabel}s that have their \texttt{flIniExpr} field set to a \texttt{Just} value.
+
+\section{Desugarer}
+During desugaring, we need to fill any unspecified record fields with the variable name corresponding to the appropriate default expression.
+Normally, the desugarer fills all missing fields with error ($\bot$) values.
+Given that the desugarer has access to the \texttt{FieldLabel}s of the arguments being desugared, we can check if they contain the default expression and desugar the field to contain the variable name instead of an error.
+
 
 \chapter{Benchmarks}
 \jcom{TODO}
