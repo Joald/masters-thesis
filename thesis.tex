@@ -1,0 +1,445 @@
+\documentclass[en]{pracamgr}
+
+% ======== Custom package setup ========
+\usepackage{amsthm}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=RoyalBlue,
+    pdfpagemode=FullScreen,
+}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\lstset{frame=tb,
+    language=Haskell,
+    aboveskip=3mm,
+    belowskip=3mm,
+    showstringspaces=false,
+    columns=flexible,
+    basicstyle={\small\ttfamily},
+    numbers=none,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{dkgreen},
+    stringstyle=\color{mauve},
+    breaklines=true,
+    breakatwhitespace=true,
+    escapeinside={(*}{*)},          % if you want to add LaTeX within your code
+    tabsize=4
+}
+
+% ======== Custom package setup end ========
+
+\autor{Jacek Olczyk}{385896}
+
+\title{Default values in Haskell record fields}
+\titlepl{Domyślne wartości pól rekordów w Haskellu}
+
+\kierunek{Computer Science}
+
+\opiekun{PhD. Josef Svenningson\\
+  Chalmers University of Technology\\
+}
+\opiekunuw{PhD. Marcin Benke\\
+  Instytut Informatyki\\
+}
+
+  % miesiąc i rok:
+\date{X 2022}
+
+%Podać dziedzinę wg klasyfikacji Socrates-Erasmus:
+\dziedzina{ 
+11.3 Informatyka\\ 
+}
+
+%Klasyfikacja tematyczna wedlug AMS (matematyka) lub ACM (informatyka)
+
+% candidates sourced from https://dl.acm.org/ccs
+
+% Software and its engineering
+% Software notations and tools
+% General programming languages
+% Language types
+% Functional languages
+
+% Software and its engineering
+% Software notations and tools
+% General programming languages
+% Language features
+% Data types and structures
+
+% Software and its engineering
+% Software notations and tools
+% Formal language definitions
+% Syntax
+
+% Software and its engineering
+% Software notations and tools
+% Context specific languages
+% Interface definition languages
+
+\klasyfikacja{D. Software\\
+  D.127 TODO pick candidate\\
+  D.127.6. Numerical blabalysis}
+
+% Słowa kluczowe:
+\keywords{functional programming, Haskell, TODO}
+
+% Tu jest dobre miejsce na Twoje własne makra i środowiska:
+
+\newtheorem{defi}{Definition}[section]
+\newcommand{\jcom}[1]{\textcolor{RoyalBlue}{[#1]}}
+
+
+
+% koniec definicji
+
+\begin{document}
+\maketitle
+
+%tu idzie streszczenie na strone poczatkowa
+\begin{abstract}
+  This thesis presents a prototype implementation of the syntax
+  and semantics for specifying the default values for fields 
+  of record types in Haskell. The proposed syntax aims to have
+  no impact on existing Haskell code and minimal syntactic intrusion
+  when the proposed feature is used. The use of default values
+  can and will happen only when using the braced record construction
+  syntax already present in Haskell. The syntax for defining default 
+  values for fields follows recognizable conventions from other
+  programming languages in which this feature is present.
+  This feature facilitates more seamless integration of Haskell codebases 
+  into multi-language codebases unified
+  by interface definition languages such as Apache Thrift. 
+\end{abstract}
+
+\tableofcontents
+%\listoffigures
+%\listoftables
+
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+
+Algebraic data types have been a staple of functional programming languages since their earliest days.
+A typical extension of their utility for everyday programming is the record syntax, present in most popular functional programming languages.
+However, a notable functionality often missing from that feature is the ability to provide default values for individual record fields.
+While widely used workarounds are known, they suffer from various problems that a compiler-assisted solution can avoid.
+
+This work aims to solve these problems in the case of the Haskell language by proposing a custom syntax inside record definitions that enables the programmer to provide a default value to any field of a given record type.
+In the beginning, we further detail the background and motivation behind these changes. 
+Then, we outline the syntactic changes applied to the grammar of Haskell alongside alternative solutions and reasoning behind the final choice.
+Following that, we explain in detail the semantic behavior of introduced features and the purely semantic changes to existing constructs.
+We also explain the development process and decisions made when implementing the feature in GHC, the leading compiler of the Haskell language.
+Finally, we investigate the performance impact of the change on the runtime of the compilation using GHC as well as the compiled programs themselves.
+The latter is accomplished by running benchmarks on \jcom{TODO}.
+
+
+\chapter{Background}\label{r:bg}
+\section{Overview of record syntax}
+A major drawback algebraic data types usually face when contrasted with data types commonly found in imperative languages (like \texttt{struct} in C) is their unwieldiness when it comes to data structures containing many fields.
+While most imperative and virtually all object-oriented languages feature a prominent and easy-to-use syntax for both naming and accessing individual fields of their data structures, the default for most functional languages has been to prefer data structures with unnamed fields.
+However, as projects grow larger and larger, having only unnamed data structure fields becomes increasingly cumbersome and error-prone.
+Thus, most functional languages provide an alternate record syntax for defining their data types. 
+
+In most cases, record syntax provides two important features: 
+the ability to name individual fields of a data structure; 
+and the automatic generation of field selector functions which
+absolves programmers from having to write the otherwise necessary,
+but cumbersome boilerplate code. 
+\jcom{example at \url{https://en.wikibooks.org/wiki/Haskell/More_on_datatypes}}
+\section{Field defaulting}
+\subsection{Introduction}
+Despite their relative ubiquity in programming languages, most instances
+of record syntax have an important usability feature missing when compared
+to their imperative counterparts --- the ability to leave out certain fields empty
+when creating a concrete object of a given type. Especially when dealing with
+data structures containing a great number of fields, e.g. types that represent
+a configuration file, the necessity of providing every field 
+of the structure with a value can become unwieldy very quickly. 
+\subsection{Prior attempts at solving the issue}
+This issue has been heretofore partially mitigated thanks to another common feature of record syntax in programming languages: the record update syntax. 
+It allows for the construction of a record in such a way that any unspecified fields are copied over from an already existing record. 
+If the author of a type then provides their users with a globally visible ''default'' object with all its fields already filled out, a user can utilize the record update syntax to mimic the desired functionality.
+
+However, this approach is not without its drawbacks.
+Firstly, it can prove a challenge if some fields don't lend themselves easily to default values. 
+For example, a data type might have an ID component along with invariants guaranteeing its uniqueness. 
+In such a situation, great care must be taken when creating a new record to ensure that the ID component is always modified from the value provided by default.
+It is also possible to circumvent that using optional types (like Haskell's \texttt{Maybe}), but this makes the data structure cumbersome to use for anything other than its creation.
+Unlike it is for its imperative counterpart, this approach does not offer the programmer any automated systems that would detect the absence of such a value.
+Given that a major advantage functional languages tout over others is the strength of their automated compile-time error detection, this is an area in which clear improvement can be made.
+
+In some languages, like Haskell, it is also possible to create a record without specifying all of its fields.
+However, in that case, the fields are still automatically filled with bottom values.
+To make matters worse, such a creation creates compile-time warnings when defining the default record, and no compile-time warnings when some of the bottoms are not replaced.
+Because of that, this solution is even worse than the previous one.
+
+Secondly, the necessity of creating a custom object to use as a default can lend itself to improper coding style and more difficulty in codebase navigation.
+In order to create a default object, one must first decide on a name that it will be given, which in large codebases necessitates either coming up with a naming convention or dealing with the repercussions of inconsistent naming. 
+Furthermore, there is no requirement for the programmers to place the default object in the same place, or even in the same file as the definition of the type itself.
+This can quickly make the issue of finding the default object a true detective's task. 
+
+\subsection{Use cases}
+Aside from the obvious functionality improvements, allowing default fields in records has some impact on the overall Haskell ecosystem.
+Many large multi-language codebases, such as the giant monorepos used by Big Tech companies, use interface definition languages (IDLs) to interface between code written in different languages.
+IDLs usually provide this through a language-agnostic syntax for defining data structures. 
+This syntax usually (as is the case in Apache Thrift) contains a way to provide default values for fields of the data structures being defined.
+Because of that, any language that doesn't natively support default field values in data structures will need to use workarounds before being able to interface with IDLs.
+\jcom{TODO: Josef's more detailed background on FB's use case}
+
+
+\chapter{Syntax}
+Among a wide variety of languages supporting providing default values to fields of data structures, there has been a virtually unanimous agreement on the syntax used for providing the default values.
+Any language that supports this feature on the compiler level seems to agree on the base syntax being \texttt{field\_name = value}, with minor variations depending on the given language's syntax for field type annotations.
+Thus, declaring an integer field with default value of 1 in C++, Java, and likely many others, looks like this: \texttt{\textcolor{Violet}{int} x = \textcolor{BrickRed}{1};}.
+As another example, the same is accomplished in TypeScript with the syntax \texttt{x:\ \textcolor{Violet}{number} = \textcolor{BrickRed}{1},}.
+
+\section{Syntax for declaring a default field value}
+With that in mind, we needed to accommodate the \texttt{field\_name = value} syntax to existing syntax for Haskell records.
+A single field in a Haskell record currently looks like the following:
+\begin{lstlisting}[escapeinside={(*}{*)}]
+  fieldName :: FieldType
+\end{lstlisting}
+Considering the above examples, a few alternative approaches for the default value syntax come to mind.
+
+\begin{itemize}
+  \item type after value
+  \begin{lstlisting}[escapeinside={(*}{*)}]
+    fieldName = field_value :: FieldType
+  \end{lstlisting}
+  \item type after name
+  \begin{lstlisting}[escapeinside={(*}{*)}]
+    fieldName :: FieldType = field_value
+  \end{lstlisting}
+  \item variants of both of the above, but allowing for omitting the type of the expression
+\end{itemize}
+
+In total four variants, and the one chosen here is the "type after value" approach without omitting the type signature.
+\subsection{Order of syntactic components}
+To decide between ''type after value'' and ''value after type'', we looked at language constructs already prevalent in existing Haskell code.
+
+%While it is possible for a top-level Haskell binding to be declared both of these ways, the usual preference for Haskell developers is 
+A regular top-level Haskell binding with a type annotation can have multiple forms:
+\begin{enumerate}
+  \item \label{vb:popular} standalone type annotation
+  \begin{lstlisting}[escapeinside={(*}{*)}]
+    name :: Type 
+    name = value
+  \end{lstlisting}
+  \item \label{vb:good} type after value
+  \begin{lstlisting}[escapeinside={(*}{*)}]
+    name = value :: Type
+  \end{lstlisting}  
+  \item \label{vb:bad} value after type
+  \begin{lstlisting}[escapeinside={(*}{*)}]
+    name :: Type = value
+  \end{lstlisting}
+\end{enumerate}
+
+By far, the most popular of these variants is \ref*{vb:popular}, but it's not readily adaptable to record fields.
+To choose between \ref*{vb:good} and \ref*{vb:bad}, we note that \ref*{vb:bad} is very rarely used in real code.
+Furthermore, at first glance, it might seem as if the default value is being assigned to the type, not the field name.
+In contrast, \ref*{vb:good} looks like a familiar construct --- a binding name without a type annotation, and its right-hand-side expression with one (and it is already parsed as such by GHC).
+
+\subsection{Omitting the type signature}
+It would seem like a good idea to allow users to omit the type signature for a field with a user-supplied default value.
+After all, it seems possible to always infer the type from the defaulting expression.
+As it turns out, the reality is not that simple.
+Many tools that are part of the GHC project currently need to be able to present the type of all fields of a given datatype without the information provided by a full typecheck of the program.
+The list of these tools includes the typechecker itself.
+While the typechecker itself could theoretically be modified to avoid this problem, forcing a typecheck on other tools (such as Haddock) would unnecessarily slow down their performance without a noticeable gain.
+As providing type annotations is a good practice in almost all use cases and virtually all existing code already has to do so for all their record fields, this loss of functionality seems to have negligible cost.
+
+
+\section{Syntax for use of defaulted fields}
+
+The chosen method for initializing fields with their default value is through braced record syntax.
+Because the only other way to construct a record is through a regular constructor function, which cannot have optional arguments (just like all other Haskell functions), braced record syntax is the sole method of assigning default values to fields.
+Omitting a given defaulted field is the only requirement for activating the mechanism. 
+Since omitting fields in record construction was already allowed (but produced a compile-time warning), no syntax change is necessary.
+
+\section{Summary}
+Below is a complete example of a Haskell record type with one of its fields defaulted. 
+In our view, the final syntax combines the best compromise between readability, new user learning curve, and implementation viability.
+
+\begin{lstlisting}[escapeinside={(*}{*)}]
+data NewRecordType
+   = NewRecordTypeCtor 
+   { fieldName :: SomeType 
+   , fieldName2 = expression2 :: SomeType2
+   }
+\end{lstlisting}
+No syntax change is necessary for the case of the usage of default values.
+
+
+\chapter{Semantics}
+\section{Examples}
+The semantics for the proposed extension of the language are very simple.
+Recall the (slightly renamed) example type from the previous chapter:
+
+\begin{lstlisting}[escapeinside={(*}{*)}]
+  data Record1
+     = RecordCtor2 
+     { field1 :: Int
+     , field2 = expression1 :: String
+     }
+\end{lstlisting}
+  
+In order to utilize the mechanism inserting default values, usage of the record construction syntax is necessary:
+
+\begin{lstlisting}[escapeinside={(*}{*)}]
+  exampleRecord :: Record1
+  exampleRecord 
+    = RecordCtor1
+    { field1 = 12
+    -- field2 is initialized with the default value
+    }
+\end{lstlisting}
+
+Notably, this is the only possible way of constructing a record with a non-$\bot$ default value.
+Below we give non-examples of constructions that do not change their semantics with this change (but could reasonably be expected to).
+In the first example, the field is initialized with the $\bot$ value, both in the current version of Haskell and with the changes described in this thesis applied to GHC.
+
+\begin{lstlisting}[escapeinside={(*}{*)}]
+  data Record2
+     = RecordCtor2 
+     { field1 :: Int
+     , field2 :: String
+     }  
+
+  exampleRecord :: Record2
+  exampleRecord 
+    = RecordCtor2 
+    { field1 = 12
+    -- field2 is initialized with the (*$\bot$*) value, raising an error when evaluated
+    }
+
+\end{lstlisting}
+
+In the second example, we note that record update is not affected by these changes. 
+Every unspecified field in the record update will be copied directly from the old record, even if its value is $\bot$.
+The example record created by the following code is equal to \texttt{RecordCtor3 \{ field1 = 5, field2 = 4 \}}.
+
+\begin{lstlisting}[escapeinside={(*}{*)}]
+  data Record3
+     = RecordCtor3
+     { field1 = 1 :: Int
+     , field2 = 2 :: String
+     }  
+
+  baseRecord :: Record3
+  baseRecord = RecordCtor3 { field1 = 3, field2 = 4 }
+
+  exampleRecord :: Record3
+  exampleRecord 
+    = baseRecord
+    { field1 = 5
+    -- field2 is initialized using the value in baseRecord, not the default value
+    }
+
+\end{lstlisting}
+
+\section{A more formal statement}
+For precision, we offer a reasonably rigorous semantic description of field defaulting:
+\newtheorem{remark}{Description}
+\begin{remark}
+  \normalfont
+  Let $T$ be a type with a record constructor $T'$ containing a field $f$ for which a default expression $e$ has been provided.
+  Then, if while calling the constructor $T'$ via the record construction syntax, field $f$ is not given any value, during evaluation the construction happens \textit{as-if} field $f$ had been specified and given the value $e$.
+\end{remark}
+
+\section{Notable observations}
+Given Haskell's usual semantics as a pure and lazy language, the defaulting expression will only be evaluated at most once, if it's needed.
+This allows for arbitrarily complex expressions without risking unnecessarily long runtime of the program. 
+Even if the defaulted field's type is a computation inside the \texttt{IO} monad (and thus can be considered to have side effects), the evaluation of the expression only produces instructions for the runtime system without actually executing them.
+Thanks to that we can be certain that the default values will behave as expected.
+
+\section{Cross-module behavior}
+\jcom{TODO pending further investigation}
+
+\chapter{Implementation}
+
+We implemented the proposed change to the language inside the leading Haskell compiler, GHC (Glorious Haskell Compiler).
+The algorithm is a journey that takes the default expression from being declared to being substituted when a field is missing.
+It consists of the following main steps:
+\begin{enumerate}
+  \item Parse the defaulting expression inside the constructor.
+  \item Give it a unique name and group it together with top-level bindings so that dependency analysis, renaming and typechecking are performed without disturbances.
+  \item Mark defaulted fields as not actually missing.
+  \item During desugaring to Core, replace any missing fields with their default values.
+\end{enumerate}
+
+The necessary changes made to the GHC code can be broken down into X parts:
+\begin{enumerate}
+  \item Changes to datatypes
+  \item Parser
+  \item Renamer
+  \item Desugarer
+\end{enumerate}
+
+\section{Changes to datatypes}
+For the initial prototype we tried to keep the changes to existing internal GHC data structures to a minimum.
+First necessary change was to the \texttt{ConDeclField} type, which represents a single 
+
+\chapter{Benchmarks}
+\jcom{TODO}
+
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{Bibliografia}
+
+% \bibitem[Bea65]{beaman} Juliusz Beaman, \textit{Morbidity of the Jolly
+%     function}, Mathematica Absurdica, 117 (1965) 338--9.
+
+% \bibitem[Blar16]{eb1} Elizjusz Blarbarucki, \textit{O pewnych
+%     aspektach pewnych aspektów}, Astrolog Polski, Zeszyt 16, Warszawa
+%   1916.
+
+% \bibitem[Fif00]{ffgg} Filigran Fifak, Gizbert Gryzogrzechotalski,
+%   \textit{O blabalii fetorycznej}, Materiały Konferencji Euroblabal
+%   2000.
+
+% \bibitem[Fif01]{ff-sr} Filigran Fifak, \textit{O fetorach
+%     $\sigma$-$\rho$}, Acta Fetorica, 2001.
+
+% \bibitem[Głomb04]{grglo} Gryzybór Głombaski, \textit{Parazytonikacja
+%     blabiczna fetorów --- nowa teoria wszystkiego}, Warszawa 1904.
+
+% \bibitem[Hopp96]{hopp} Claude Hopper, \textit{On some $\Pi$-hedral
+%     surfaces in quasi-quasi space}, Omnius University Press, 1996.
+
+% \bibitem[Leuk00]{leuk} Lechoslav Leukocyt, \textit{Oval mappings ab ovo},
+%   Materiały Białostockiej Konferencji Hodowców Drobiu, 2000.
+
+% \bibitem[Rozk93]{JR} Josip A. Rozkosza, \textit{O pewnych własnościach
+%     pewnych funkcji}, Północnopomorski Dziennik Matematyczny 63491
+%   (1993).
+
+% \bibitem[Spy59]{spyrpt} Mrowclaw Spyrpt, \textit{A matrix is a matrix
+%     is a matrix}, Mat. Zburp., 91 (1959) 28--35.
+
+% \bibitem[Sri64]{srinis} Rajagopalachari Sriniswamiramanathan,
+%   \textit{Some expansions on the Flausgloten Theorem on locally
+%     congested lutches}, J. Math.  Soc., North Bombay, 13 (1964) 72--6.
+
+% \bibitem[Whi25]{russell} Alfred N. Whitehead, Bertrand Russell,
+%   \textit{Principia Mathematica}, Cambridge University Press, 1925.
+
+% \bibitem[Zen69]{heu} Zenon Zenon, \textit{Użyteczne heurystyki
+%     w blabalizie}, Młody Technik, nr 11, 1969.
+
+\end{thebibliography}
+
+\end{document}
+
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% coding: latin-2
+%%% End:
