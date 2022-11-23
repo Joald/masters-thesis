@@ -33,6 +33,23 @@
     escapeinside={(*}{*)},          % if you want to add LaTeX within your code
     tabsize=4
 }
+\lstdefinestyle{c}{frame=tb,
+  language=C,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  escapeinside={(*}{*)},          % if you want to add LaTeX within your code
+  tabsize=4
+}
 
 % ======== Custom package setup end ========
 
@@ -151,17 +168,65 @@ In most cases, record syntax provides two important features:
 the ability to name individual fields of a data structure; 
 and the automatic generation of field selector functions which
 absolves programmers from having to write the otherwise necessary,
-but cumbersome boilerplate code. 
-\jcom{example at \url{https://en.wikibooks.org/wiki/Haskell/More_on_datatypes}}
+but cumbersome boilerplate code.
+
+As an example, let's compare record syntax in C and Haskell representing a person's name and age.
+
+\begin{lstlisting}[style=c]
+  typedef struct {
+    char* name;
+    int age;
+  } Person;
+\end{lstlisting}
+
+\begin{lstlisting}
+  data Person 
+    = Person 
+    { name :: String
+    , age :: Int
+    }
+\end{lstlisting}
+In C, without this syntax, the only way to create compound data structures consisting of data of different types is manual pointer arithmetic:
+\begin{lstlisting}[style=c]
+  // create a record with this syntax and set fields
+  Person person;
+  person.name = "Adam";
+  person.age = 21;
+
+  // one way to recreate the above on Linux without struct syntax
+  void* person = alloca(sizeof(char*) + sizeof(int));
+  *(char**)person = "Adam";
+  *(int*)(person + sizeof(char*)) = 21;
+  // the above would of course be extracted to accessor functions in hypothetical real-world code
+\end{lstlisting}
+
+In Haskell, the lack of named fields would necessitate boilerplate accessor functions as described in \cite{WikibooksHaskellDatatypes}.
+
+\subsection{History of records and field defaulting in other languages}
+The earliest examples of programming language syntax for record types date back to the 1950s and 60s with their introduction in COBOL in 1959 \cite{sebesta1996concepts}.
+Popular contemporary languages like Algol 68 \cite{van2012revised} and FORTRAN 77 \cite{fortran77} adopted their own syntax soon thereafter.
+They did not provide any facilities for providing default values for structure fields.
+Early object-oriented languages either used constructors for this purpose (Smalltalk \cite{smalltalk80}), or nothing at all (Simula \cite{Simula67}).
+The same followed for most of languages developed in the 1970s and 80s: languages with either no default initialization of record types, like C and Pascal,
+or default initialization via constructor functions, like in C++.
+A notable exception is Common Lisp, which being released in 1985 can be counted 
+as one of the earliest examples of records with dedicated syntax for default field values \cite{CommonLisp}.
+
+Examining 10 of the most popular general-purpose programming languages in 2022,
+most of them provide in their latest version some utility for specifying default field values,
+either through constructor functions or dedicated syntax.
+Chosen programming languages are: C, C++, Java, JavaScript, Python, C\#, PHP, Go, Kotlin and Rust.
+TODO: compare.
 \section{Field defaulting}
 \subsection{Introduction}
-Despite their relative ubiquity in programming languages, most instances
+Despite their relative ubiquity in modern functional programming languages, most implementations
 of record syntax have an important usability feature missing when compared
 to their imperative counterparts --- the ability to leave out certain fields empty
 when creating a concrete object of a given type. Especially when dealing with
 data structures containing a great number of fields, e.g. types that represent
 a configuration file, the necessity of providing every field 
 of the structure with a value can become unwieldy very quickly. 
+
 \subsection{Prior attempts at solving the issue}
 This issue has been heretofore partially mitigated thanks to another common feature of record syntax in programming languages: the record update syntax. 
 It allows for the construction of a record in such a way that any unspecified fields are copied over from an already existing record. 
@@ -220,9 +285,9 @@ Any type written in extension field or an extension constructor definition is ac
 which when parameterized by the phase, allows for a different \texttt{type instance} for each phase.
 \section{Compilation phases}
 \subsection{Parsing}
-GHC does parsing of source code through a monolithic Happy grammar\cite{Happy}, although this wasn't initially the case \cite{Jones1993TheGH}.
+GHC does parsing of source code through a monolithic Happy grammar \cite{Happy}, although this wasn't initially the case \cite{Jones1993TheGH}.
 The data structures emitted by the parser are often ambiguous as to which production was actually used to parse a given part of the source code.
-This is a result of a policy of ''overparse, then filter out the bad cases''\cite{ParserWiki}.
+This is a result of a policy of ''overparse, then filter out the bad cases'' \cite{ParserWiki}.
 For example, in certain contexts both patterns and expressions are valid, so knowing which grammar derivation to use would require infinite lookahead.
 This is solved through a validation monad which allows parsing contexts to specify which constructs are possible, failing the parse on the rest.
 Another system of note are the source location and annotation types, which are ingrained into the types that form the Haskell source code AST.
@@ -239,7 +304,7 @@ The typechecker uses the \texttt{Type} type, which is used to type Core, instead
 This is because the typechecking process is quite complicated, and thus requires a data structure that is easy to manipulate.
 
 \subsection{Desugaring}
-The desugarer transforms the Haskell AST (with the \texttt{GhcTc} phase indicator) into an explicitly type variant of System FC called Core\cite{CoreWiki}.
+The desugarer transforms the Haskell AST (with the \texttt{GhcTc} phase indicator) into an explicitly type variant of System FC called Core \cite{CoreWiki}.
 The Core language AST consists of very few constructors, and great care is taken to not modify this language when not necessary, 
 so any changes that are little more than syntactic sugar should be implemented as part of the desugarer.
 
