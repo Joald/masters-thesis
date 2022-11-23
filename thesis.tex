@@ -194,8 +194,54 @@ Because of that, any language that doesn't natively support default field values
 \jcom{TODO: Josef's more detailed background on FB's use case}
 
 \chapter{GHC architecture}
-This section contains an abridged overview of the architecture of the GHC compiler to serve as background for implementation details provided later.
+This section contains an abridged overview of the architecture of the frontend of the GHC compiler to serve as background for implementation details provided later.
+The compilation process in the GHC compiler consists of 6 main phases \cite{GHCIntermediateForms}, the first 4 of which are:
+\begin{enumerate}
+  \item Parsing
+  \item Renaming
+  \item Typechecking 
+  \item Desugaring 
+\end{enumerate}
+These are all the phases that deal with the Haskell AST, mostly unchanged from the parser. 
+The last one, the desugarer, desugars the Haskell AST to the much smaller internal language Core, which is used for optimization.
+Before discussing the passes themselves, it's worth to describe how GHC deals with modification of the AST throughout the frontend of the compiler.
+\section{Trees that grow}
+Throughout the phases of the frontend, various data about the Haskell AST is generated (and other becomes no longer needed).
+In order to avoid data structure fields or constructors being unused during some phases or having multiple slightly different versions of the same AST type definitions,
+a mechanism was introduced in \cite{Najd2017TreesTG} which parameterized the entire syntax tree with a type argument representing the current phase of compilation.
+Three distinct phases are available: \texttt{GhcPs}, \texttt{GhcRn}, \texttt{GhcTc},
+with the parser producing code parameterized by \texttt{GhcPs}, the renamer converting \texttt{GhcPs} to \texttt{GhcRn},
+and the typechecker converting \texttt{GhcRn} to \texttt{GhcTc}. 
+With that in mind, when creating a data structure,
+the developer writes all constructors and fields common to all phases as they normally would, with a minor exception.
+Every type \texttt{T} gets an extra constructor \texttt{XT} (e\texttt{X}tension to \texttt{T}), which allows for phase-specific constructors,
+and every constructor \texttt{CtorT} has as its first field set to type \texttt{XCtorT}, to allow for phase-specific constructor fields.
+Any type written in extension field or an extension constructor definition is actually a \texttt{type family},
+which when parameterized by the phase, allows for a different \texttt{type instance} for each phase.
+\section{Compilation phases}
+\subsection{Parsing}
+GHC does parsing of source code through a monolithic Happy grammar\cite{Happy}, although this wasn't initially the case \cite{Jones1993TheGH}.
+The data structures emitted by the parser are often ambiguous as to which production was actually used to parse a given part of the source code.
+This is a result of a policy of ''overparse, then filter out the bad cases''\cite{ParserWiki}.
+For example, in certain contexts both patterns and expressions are valid, so knowing which grammar derivation to use would require infinite lookahead.
+This is solved through a validation monad which allows parsing contexts to specify which constructs are possible, failing the parse on the rest.
+Another system of note are the source location and annotation types, which are ingrained into the types that form the Haskell source code AST.
+Any parser node has to extract the location and annotation data from its subnodes, and very carefully combine them together,
+as there is no automatic mechanism for detecting errors in code like this.
 
+\subsection{Renaming}
+The task of the renamer is to match each name usage in the code with the matching definition. 
+Its code is intertwined with the typechecker code, and uses the same monad \cite{RenamerWiki}.
+
+\subsection{Typechecking}
+Typechecking a module happens concurrently (but not in parallel) with renaming, because of Template Haskell splices.
+The typechecker uses the \texttt{Type} type, which is used to type Core, instead of the \texttt{HsType} created by the parser \cite{TypecheckerWiki}.
+This is because the typechecking process is quite complicated, and thus requires a data structure that is easy to manipulate.
+
+\subsection{Desugaring}
+The desugarer transforms the Haskell AST (with the \texttt{GhcTc} phase indicator) into an explicitly type variant of System FC called Core\cite{CoreWiki}.
+The Core language AST consists of very few constructors, and great care is taken to not modify this language when not necessary, 
+so any changes that are little more than syntactic sugar should be implemented as part of the desugarer.
 
 \chapter{Syntax}
 Among a wide variety of languages supporting providing default values to fields of data structures, there has been a virtually unanimous agreement on the syntax used for providing the default values.
@@ -441,11 +487,9 @@ Given that the desugarer has access to the \texttt{FieldLabel}s of the arguments
 \chapter{Benchmarks}
 \jcom{TODO}
 
-\begin{thebibliography}{99}
-\addcontentsline{toc}{chapter}{Bibliografia}
 
-% \bibitem[Bea65]{beaman} Juliusz Beaman, \textit{Morbidity of the Jolly
-%     function}, Mathematica Absurdica, 117 (1965) 338--9.
+\bibliographystyle{acm} \bibliography{bibliography}
+
 
 % \bibitem[Blar16]{eb1} Elizjusz Blarbarucki, \textit{O pewnych
 %     aspektach pewnych aspektów}, Astrolog Polski, Zeszyt 16, Warszawa
@@ -484,7 +528,6 @@ Given that the desugarer has access to the \texttt{FieldLabel}s of the arguments
 % \bibitem[Zen69]{heu} Zenon Zenon, \textit{Użyteczne heurystyki
 %     w blabalizie}, Młody Technik, nr 11, 1969.
 
-\end{thebibliography}
 
 \end{document}
 
