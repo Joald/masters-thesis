@@ -28,8 +28,9 @@
     keywordstyle=\color{blue},
     commentstyle=\color{dkgreen},
     stringstyle=\color{mauve},
-    breaklines=true,
+    breaklines=false,
     breakatwhitespace=true,
+    frame=none,
     escapeinside={(*}{*)},          % if you want to add LaTeX within your code
     tabsize=4
 }
@@ -305,6 +306,8 @@ The same followed for most of languages developed in the 1970s and 80s: language
 or default initialization via constructor functions, like in C++.
 A notable exception is Common Lisp, which being released in 1985 can be counted 
 as one of the earliest examples of records with dedicated syntax for default field values \cite{CommonLisp}.
+With the rise of popularity of programming and the coming of the Internet era, 
+syntactic support for default values has suddenly changed from obscure to ubiquitous, as well see from the examples in the next section.
 \subsection{Modern examples in other languages}
 Examining 10 of the most popular general-purpose programming languages in 2022,
 most of them provide in their latest version some utility for specifying default field values,
@@ -312,6 +315,10 @@ either through constructor functions or dedicated syntax.
 Chosen programming languages are: C++, Java, JavaScript, TypeScript, Python, C\#, PHP, Go, Kotlin and Rust.
 Choice was based on statistics from \cite{StatistaProgLangs}, after removing markup languages, 
 query languages and scripting languages, as well as C which was already discussed above.
+Of course, any programming language offers support for default values through creating an object and using it as a "default".
+This approach is not investigated, as it requires no help from the language to implement, unless there is a language-wide
+convention on the details on how the object is supposed to be created. 
+
 
 The below table illustrates support for field defaulting in the above languages.
 
@@ -557,12 +564,109 @@ Furthermore, there is no requirement for the programmers to place the default ob
 This can quickly make the issue of finding the default object a true detective's task. 
 
 \subsection{Direct use cases}
-Aside from the obvious functionality improvements, allowing default fields in records has some impact on the overall Haskell ecosystem.
-Many large multi-language codebases, such as the giant monorepos used by Big Tech companies, use interface definition languages (IDLs) to interface between code written in different languages.
+Aside from the obvious functionality improvements, allowing default fields in records has positive impact on the overall Haskell ecosystem.
+Many large multi-language codebases, such as the giant monorepos used by Big Tech companies, use interface definition languages
+(IDLs) like Apache Thrift or Google's Protobuf to interface between code written in different languages.
 IDLs usually provide this through a language-agnostic syntax for defining data structures. 
 This syntax usually (as is the case in Apache Thrift) contains a way to provide default values for fields of the data structures being defined.
 Because of that, any language that doesn't natively support default field values in data structures will need to use workarounds before being able to interface with IDLs.
-\jcom{TODO: Josef's more detailed background on FB's use case}
+
+\subsubsection{Code migrations}
+\newcommand{\user}{\textit{user}}
+\newcommand{\infra}{\textit{infra}}
+A major potential real-world use case is helping with code migrations.
+As an example, consider a system with two codebases, \user{} and \infra{}. 
+\infra{} provides type definitions for configs, like this simplified example:\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}
+  data Config 
+    = Config
+    { name :: String
+    , value :: SomeType
+    }
+\end{lstlisting}
+\end{minipage}
+Code in \user{} will then construct values of this type, like so:\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}
+  someVar :: Config
+  someVar = Config { name = "my config", value = myValue }
+\end{lstlisting}
+\end{minipage}
+To ensure runtime safety of the system, constructing this value is protected via the combination of the 
+\texttt{-Wmissing-fields} and \texttt{-Werror} compiler flags. 
+In their presence, omitting a field creates a compile-time error, making sure that every field value is correctly in place.
+Since it is easy for a programmer to forget about a field, especially when there are many of them, this check
+measurably increases correctness of the system. 
+However, when there is a need to add an additional field, problems with that approach arise. 
+Even if the system was limited to just one codebase, a sufficiently large system cannot be easily migrated to use a new value
+in all the occurrences of the construction. With multiple codebases, the process complicates even more. Here's a step-by-step
+example of how that could look like, if one wanted to add a field \texttt{owner} of type \texttt{String}:
+\newcommand{\defaultconf}{\texttt{defaultConfig}}
+\newcommand{\conf}{\texttt{Config}}
+
+\begin{enumerate}
+  \item We cannot add the field directly without creating compile errors in \user{} code. 
+  To work around that, we create a default value called, let's say, \texttt{defaultConfig} in the same module of \infra{} code as 
+  the definition of the type.\\
+  \begin{minipage}{\linewidth}
+    \begin{lstlisting}
+defaultConfig :: Config
+defaultConfig = Config { name = "default name", value = defaultSomeTypeValue }
+    \end{lstlisting}
+  \end{minipage}
+  \item This code needs to be deployed/released in order for \defaultconf{} to be accessible in \user{} code.
+  \item Then, all constructors of \conf{} in \user{} can be modified to a record update of \\
+  \defaultconf{}:\\
+  \begin{minipage}{\linewidth}
+    \begin{lstlisting}
+someVar :: Config
+someVar = defaultConfig { name = "my config", value = myValue }
+    \end{lstlisting}
+  \end{minipage}
+  This change silences the warning 
+  \item This code, again, needs to be deployed/released before any further changes in \infra{} are made.
+  \item With that setup, we can safely introduce a new field in \infra{}, immediately modifying \defaultconf{} with a default value :\\
+  \begin{minipage}{\linewidth}
+    \begin{lstlisting}
+data Config 
+  = Config
+  { name :: String
+  , value :: SomeType
+  , owner :: String
+  }
+
+defaultConfig :: Config
+defaultConfig 
+  = Config 
+  { name = "default name"
+  , value = defaultSomeTypeValue
+  , owner = "default owner" 
+  }
+    \end{lstlisting}
+    \end{minipage}
+  \item Yet again, a deploy/release is needed.
+  \item Now, all of the \user{} code can revert to using constructors, as soon as the relevant code is adapted to make use of the 
+  new field. This restores the protection given by \texttt{-Wmissing-fields}.\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}
+someVar :: Config
+someVar 
+  = Config
+  { name = "my config"
+  , value = myValue
+  , owner = "my owner"
+  }
+\end{lstlisting}
+\end{minipage}
+
+  \item All this \user{} code must again be deployed/released.
+\end{enumerate}
+
+By contrast, with the addition of field default value syntax the above process could be shortened to:
+\begin{enumerate}
+  \item 
+\end{enumerate}
 
 \chapter{GHC architecture}
 This section contains an abridged overview of the architecture of the frontend of the GHC compiler to serve as background for implementation details provided later.
@@ -683,8 +787,6 @@ The chosen method for initializing fields with their default value is through br
 Because the only other way to construct a record is through a regular constructor function, which cannot have optional arguments (just like all other Haskell functions), braced record syntax is the sole method of assigning default values to fields.
 Omitting a given defaulted field is the only requirement for activating the mechanism. 
 Since omitting fields in record construction was already allowed (but produced a compile-time warning), no syntax change is necessary.
-
-\jcom{TODO: maybe talk about the possibility of defaulting multiple fields in one line, e.g. ''a = 1, b = 2, c = 3 :: Int'')}
 
 \section{Summary}
 Below is a complete example of a Haskell record type with one of its fields defaulted. 
