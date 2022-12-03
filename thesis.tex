@@ -5,6 +5,7 @@
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{float}
 \hypersetup{
     colorlinks=true,
     linkcolor=blue,
@@ -163,7 +164,7 @@
 }
 
   % miesiąc i rok:
-\date{X 2022}
+\date{Dec 2022}
 
 %Podać dziedzinę wg klasyfikacji Socrates-Erasmus:
 \dziedzina{ 
@@ -191,11 +192,6 @@
 % Formal language definitions
 % Syntax
 
-% Software and its engineering
-% Software notations and tools
-% Context specific languages
-% Interface definition languages
-
 \klasyfikacja{D. Software\\
   D.127 TODO pick candidate\\
   D.127.6. Numerical blabalysis}
@@ -215,7 +211,6 @@
 \begin{document}
 \maketitle
 
-%tu idzie streszczenie na strone poczatkowa
 \begin{abstract}
   This thesis presents a prototype implementation of the syntax
   and semantics for specifying the default values for fields 
@@ -233,7 +228,7 @@
 
 \tableofcontents
 %\listoffigures
-%\listoftables
+% \listoftables
 
 \chapter*{Introduction}
 \addcontentsline{toc}{chapter}{Introduction}
@@ -243,13 +238,12 @@ A typical extension of their utility for everyday programming is the record synt
 However, a notable functionality often missing from that feature is the ability to provide default values for individual record fields.
 While widely used workarounds are known, they suffer from various problems that a compiler-assisted solution can avoid.
 
-This work aims to solve these problems in the case of the Haskell language by proposing a custom syntax inside record definitions that enables the programmer to provide a default value to any field of a given record type.
-In the beginning, we further detail the background and motivation behind these changes. 
+This work aims to solve these problems in the case of the Haskell language \cite{HudakHaskell}
+by proposing a custom syntax inside record definitions that enables the programmer to provide a default value to any field of a given record type.
+In the beginning, we further detail the background and motivation behind these changes, as well as examples of problems they solve.
 Then, we outline the syntactic changes applied to the grammar of Haskell alongside alternative solutions and reasoning behind the final choice.
 Following that, we explain in detail the semantic behavior of introduced features and the purely semantic changes to existing constructs.
 We also explain the development process and decisions made when implementing the feature in GHC, the leading compiler of the Haskell language.
-Finally, we investigate the performance impact of the change on the runtime of the compilation using GHC as well as the compiled programs themselves.
-The latter is accomplished by running benchmarks on \jcom{TODO}.
 
 
 \chapter{Background}\label{r:bg}
@@ -281,7 +275,8 @@ As an example, let's compare record syntax in C and Haskell representing a perso
     , age :: Int
     }
 \end{lstlisting}
-In C, without this syntax, the only way to create compound data structures consisting of data of different types is manual pointer arithmetic:
+In C, without this syntax, the only way to create compound data structures consisting of data of different types is manual pointer arithmetic:\\
+\begin{minipage}{\linewidth}
 \begin{lstlisting}[style=c]
   // create a record with this syntax and set fields
   Person person;
@@ -292,8 +287,10 @@ In C, without this syntax, the only way to create compound data structures consi
   void* person = alloca(sizeof(char*) + sizeof(int));
   *(char**)person = "Adam";
   *(int*)(person + sizeof(char*)) = 21;
-  // the above would of course be extracted to accessor functions in hypothetical real-world code
+  // the above would of course be extracted to accessor functions
+  // in hypothetical real-world code
 \end{lstlisting}
+\end{minipage}
 
 In Haskell, the lack of named fields would necessitate boilerplate accessor functions as described in \cite{WikibooksHaskellDatatypes}.
 
@@ -321,8 +318,7 @@ convention on the details on how the object is supposed to be created.
 
 
 The below table illustrates support for field defaulting in the above languages.
-
-\begin{table}[h]
+\begin{table}[H]
   \centering
   \begin{tabular}{c|c|c|}
   \cline{2-3}
@@ -532,13 +528,15 @@ experience for Haskell programmers.
 
 \section{Field defaulting in Haskell}
 \subsection{Introduction}
-Despite their relative ubiquity in modern functional programming languages, most implementations
-of record syntax (e.g. OCaml) have an important usability feature missing when compared
+Despite record syntax's relative ubiquity in modern functional programming languages, most implementations
+of it (e.g. OCaml, F\#, ReasonML) have an important usability feature missing when compared
 to their imperative counterparts --- the ability to leave out certain fields empty
 when creating a concrete object of a given type. Especially when dealing with
 data structures containing a great number of fields, e.g. types that represent
 a configuration file, the necessity of providing every field 
 of the structure with a value can become unwieldy very quickly. 
+The only example of this syntax in a popular functional programming language seems to be Erlang,
+where records can be default-constructed and the fields without default values are undefined \cite{ErlangRecords}.
 
 \subsection{Prior attempts at solving the issue}
 This issue has been heretofore partially mitigated thanks to another common feature of record syntax in programming languages: the record update syntax. 
@@ -615,7 +613,7 @@ defaultConfig :: Config
 defaultConfig = Config { name = "default name", value = defaultSomeTypeValue }
     \end{lstlisting}
   \end{minipage}
-  \item This code needs to be deployed/released in order for \defaultconf{} to be accessible in \user{} code.
+  \item This code needs to be released in order for \defaultconf{} to be accessible in \user{} code.
   \item Then, all constructors of \conf{} in \user{} can be modified to a record update of \\
   \defaultconf{}:\\
   \begin{minipage}{\linewidth}
@@ -625,7 +623,7 @@ someVar = defaultConfig { name = "my config", value = myValue }
     \end{lstlisting}
   \end{minipage}
   This change silences the warning 
-  \item This code, again, needs to be deployed/released before any further changes in \infra{} are made.
+  \item This code, again, needs to be released before any further changes in \infra{} are made.
   \item With that setup, we can safely introduce a new field in \infra{}, immediately modifying \defaultconf{} with a default value :\\
   \begin{minipage}{\linewidth}
     \begin{lstlisting}
@@ -645,9 +643,9 @@ defaultConfig
   }
     \end{lstlisting}
     \end{minipage}
-  \item Yet again, a deploy/release is needed.
+  \item Yet again, a release is needed.
   \item Now, all of the \user{} code can revert to using constructors, as soon as the relevant code is adapted to make use of the 
-  new field. This restores the protection given by \texttt{-Wmissing-fields}.\\
+  new field. \\
 \begin{minipage}{\linewidth}
 \begin{lstlisting}
 someVar :: Config
@@ -660,14 +658,25 @@ someVar
 \end{lstlisting}
 \end{minipage}
 
-  \item All this \user{} code must again be deployed/released.
+  \item This \user{} code must again be released. This restores the protection given by \\
+  \texttt{-Wmissing-fields}.
 \end{enumerate}
 
-By contrast, with the addition of field default value syntax the above process could be shortened to:
-\begin{enumerate}
-  \item 
-\end{enumerate}
-
+By contrast, with the addition of field default value syntax the above process could be shortened 
+to just one \infra{} release containing the new field with the default value:\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}
+data Config 
+  = Config
+  { name :: String
+  , value :: SomeType
+  , owner = "default owner" :: String
+  }
+\end{lstlisting}
+\end{minipage}
+This way, \texttt{-Wmissing-fields} is working for all the other fields, and teams working on \user{}
+code can add support for the new field at their own pace.
+Once this is done, the default value can be removed to ensure it's also protected by \texttt{-Wmissing-fields}.
 \chapter{GHC architecture}
 This section contains an abridged overview of the architecture of the frontend of the GHC compiler to serve as background for implementation details provided later.
 The compilation process in the GHC compiler consists of 6 main phases \cite{GHCIntermediateForms}, the first 4 of which are:
@@ -680,7 +689,7 @@ The compilation process in the GHC compiler consists of 6 main phases \cite{GHCI
 These are all the phases that deal with the Haskell AST, mostly unchanged from the parser. 
 The last one, the desugarer, desugars the Haskell AST to the much smaller internal language Core, which is used for optimization.
 Before discussing the passes themselves, it's worth to describe how GHC deals with modification of the AST throughout the frontend of the compiler.
-\section{Trees that grow}
+\section{Trees that grow}\label{ttg}
 Throughout the phases of the frontend, various data about the Haskell AST is generated (and other becomes no longer needed).
 In order to avoid data structure fields or constructors being unused during some phases or having multiple slightly different versions of the same AST type definitions,
 a mechanism was introduced in \cite{Najd2017TreesTG} which parameterized the entire syntax tree with a type argument representing the current phase of compilation.
@@ -879,17 +888,15 @@ For precision, we offer a reasonably rigorous semantic description of field defa
 \end{remark}
 
 \section{Notable observations}
-Given Haskell's usual semantics as a pure and lazy language, the defaulting expression will only be evaluated at most once, if it's needed.
+Given Haskell's usual semantics as a pure and lazy language, the defaulting expression is only evaluated at most once, if it's needed (more details in \ref{sec:efficiency}).
 This allows for arbitrarily complex expressions without risking unnecessarily long runtime of the program. 
 Even if the defaulted field's type is a computation inside the \texttt{IO} monad (and thus can be considered to have side effects), the evaluation of the expression only produces instructions for the runtime system without actually executing them.
 Thanks to that we can be certain that the default values will behave as expected.
 
-\section{Cross-module behavior}
-\jcom{TODO pending further investigation}
 
 \chapter{Implementation}
 
-We implemented the proposed change to the language inside the leading Haskell compiler, GHC (Glorious Haskell Compiler).
+We implemented the proposed change to the language inside the leading Haskell compiler, GHC (Glorious Haskell Compiler) \cite{HudakHaskell}.
 The algorithm is a journey that takes the default expression from being declared to being substituted when a field is missing.
 It consists of the following main steps:
 \begin{enumerate}
@@ -907,14 +914,13 @@ The necessary changes made to the GHC code can be broken down into X parts:
   \item Desugarer
 \end{enumerate}
 
-\section{Changes to datatypes} \jcom{Maybe the sections below could use references to specific files?}
+\section{Changes to datatypes} 
 
-\jcom{Now I realize that the fields should have been called default expressions in the code, not initializing expressions...}
 For the initial prototype we tried to keep the changes to existing internal GHC data structures to a minimum.
 First necessary change was to the \texttt{ConDeclField} type, which represents a single field of a record constructor.
 We modify it by adding a field called \texttt{cd\_fld\_ini} of type \texttt{Maybe (LHsExpr pass)}. 
 The \texttt{L} prefix in \texttt{LHsExpr} means that the expression contains information about its location in the source file.
-The \texttt{pass} parameter signifies the current phase of the compilation \jcom{ref. Trees that grow}.
+The \texttt{pass} parameter signifies the current phase of the compilation (using the Trees that grow technique described in \ref{ttg} and in detail in \cite{Najd2017TreesTG}).
 This modification allows us to pass the defaulting expression from the parser to the renamer.
 
 The renamer then moves information about types and their constructors from the data structures that represent abstract syntax to internal structures that are easier to work with.
@@ -956,51 +962,41 @@ During desugaring, we need to fill any unspecified record fields with the variab
 Normally, the desugarer fills all missing fields with error ($\bot$) values.
 Given that the desugarer has access to the \texttt{FieldLabel}s of the arguments being desugared, we can check if they contain the default expression and desugar the field to contain the variable name instead of an error.
 
+\section{Notes on global bindings}
+\label{sec:efficiency}
+A notable side effect of the decision to implement default values as global bindings is that it implicitly performs the optimization
+described in \cite{partain1996let-floating} as the full laziness transformation. 
+This naturally is expected to result in the same consequences and considerations as outlined therein:
+\begin{itemize}
+  \item Programs can be made faster by not repeating work (to compute the value) and allocations (to store the value).
+  \item When the default value ''is already a value, or reduces to a value with a negligible amount of work'', the only potential gain is in allocations.
+  \item The values can potentially cause a space leak 
+    (e.g. when a default value is an infinite list and more elements get evaluated than will be needed in the future)
+  \item They are harder to garbage-collect
+\end{itemize}
+How do these apply to the typical use case of default field values?
+In a reasonable program, one would expect default values to be more likely to need to be reused.
+Thus, making sure that their value isn't recomputed on each evaluation of a constructor that does not contain the field seems like a good approach.
+It also follows the principle of least confusion \cite{saltzer2009principles}: 
+it's not immediately obvious to a user writing a constructor with a defaulted field how much work will be performed on construction,
+so the best approach is to minimize it.
 
-\chapter{Benchmarks}
-\jcom{TODO}
+Furthermore, it's common for default values to require little to no computation. 
+For example, a major use case of default values is placeholders meant to be filled out later. 
+Often programmers choose the simplest possible value for a given type as the default, e.g. \texttt{0\ ::\ Int}.
+With this in mind, it seems unlikely for programmers to provide default values that could cause a noticable space leak, and most of the time one might
+reasonably expect a bunch of allocations to be omitted.
+Unfortunately, there is no way to verify these assumptions without developing an alternative implementation that doesn't make the default values global.
 
+\chapter{Conclusion} 
+This work proposed a custom syntax for default record fields in Haskell, detailed a proof-of-concept implementation and discussed the design choices
+and tradeoffs behind the syntax and semantics of the implementation.
+
+From this work it is clear that an implementation of default record field values in Haskell is possible, usable useful and hopefully soon implemented
+into the mainline GHC. The syntax is clear and intuitive and the behavior of programs that use it is predictable and efficient.
+The next step is to submit a proposal for the syntax to be accepted as a language extension in the GHC compiler, to bring this feature to the widest possible audience.
 
 \bibliographystyle{acm} \bibliography{bibliography}
-
-
-% \bibitem[Blar16]{eb1} Elizjusz Blarbarucki, \textit{O pewnych
-%     aspektach pewnych aspektów}, Astrolog Polski, Zeszyt 16, Warszawa
-%   1916.
-
-% \bibitem[Fif00]{ffgg} Filigran Fifak, Gizbert Gryzogrzechotalski,
-%   \textit{O blabalii fetorycznej}, Materiały Konferencji Euroblabal
-%   2000.
-
-% \bibitem[Fif01]{ff-sr} Filigran Fifak, \textit{O fetorach
-%     $\sigma$-$\rho$}, Acta Fetorica, 2001.
-
-% \bibitem[Głomb04]{grglo} Gryzybór Głombaski, \textit{Parazytonikacja
-%     blabiczna fetorów --- nowa teoria wszystkiego}, Warszawa 1904.
-
-% \bibitem[Hopp96]{hopp} Claude Hopper, \textit{On some $\Pi$-hedral
-%     surfaces in quasi-quasi space}, Omnius University Press, 1996.
-
-% \bibitem[Leuk00]{leuk} Lechoslav Leukocyt, \textit{Oval mappings ab ovo},
-%   Materiały Białostockiej Konferencji Hodowców Drobiu, 2000.
-
-% \bibitem[Rozk93]{JR} Josip A. Rozkosza, \textit{O pewnych własnościach
-%     pewnych funkcji}, Północnopomorski Dziennik Matematyczny 63491
-%   (1993).
-
-% \bibitem[Spy59]{spyrpt} Mrowclaw Spyrpt, \textit{A matrix is a matrix
-%     is a matrix}, Mat. Zburp., 91 (1959) 28--35.
-
-% \bibitem[Sri64]{srinis} Rajagopalachari Sriniswamiramanathan,
-%   \textit{Some expansions on the Flausgloten Theorem on locally
-%     congested lutches}, J. Math.  Soc., North Bombay, 13 (1964) 72--6.
-
-% \bibitem[Whi25]{russell} Alfred N. Whitehead, Bertrand Russell,
-%   \textit{Principia Mathematica}, Cambridge University Press, 1925.
-
-% \bibitem[Zen69]{heu} Zenon Zenon, \textit{Użyteczne heurystyki
-%     w blabalizie}, Młody Technik, nr 11, 1969.
-
 
 \end{document}
 
