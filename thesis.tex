@@ -305,7 +305,7 @@ A notable exception is Common Lisp, which being released in 1985 can be counted
 as one of the earliest examples of records with dedicated syntax for default field values \cite{CommonLisp}.
 With the rise of popularity of programming and the coming of the Internet era, 
 syntactic support for default values has suddenly changed from obscure to ubiquitous, as well see from the examples in the next section.
-\subsection{Modern examples in other languages}
+\subsection{Modern examples in other languages}\label{subs:modernexamples}
 Examining 10 of the most popular general-purpose programming languages in 2022,
 most of them provide in their latest version some utility for specifying default field values,
 either through constructor functions or dedicated syntax.
@@ -677,6 +677,41 @@ data Config
 This way, \texttt{-Wmissing-fields} is working for all the other fields, and teams working on \user{}
 code can add support for the new field at their own pace.
 Once this is done, the default value can be removed to ensure it's also protected by \texttt{-Wmissing-fields}.
+
+\subsubsection{Example of a big config}
+A good example of a large record type in a widely used Haskell codebase is the DynFlags structure in GHC.
+Its type definition is indeed massive, and so is the function used for constructing its default value.
+The definition is included in Appendix \ref{appendix:typedef}, and the default value construction in Appendix \ref{appendix:defval}.
+This is because the former takes up 6 pages and the latter 4 pages.
+Investigating the default value for the type, a couple of notable observations can be made.
+\begin{itemize}
+  \item It's a function taking a \texttt{Settings} value as an argument, as some fields of the default value rely on settings.
+  \item Most of the other field values are either constants or global values.
+  \item Three fields contain bottom values that panic on evaluation.
+\end{itemize}
+Clearly, the values that do not depend on the setting value are great candidates for being defaulted in the type definition itself.
+Only 8 fields actually depend on the setting value, so with the default value extension the function can be reduced to:
+\begin{lstlisting}
+defaultDynFlags :: Settings -> DynFlags
+defaultDynFlags mySettings =
+-- See Note [Updating flag description in the User's Guide]
+  DynFlags {
+    backend = platformDefaultBackend (sTargetPlatform mySettings),
+    ghcNameVersion = sGhcNameVersion mySettings,
+    fileSettings = sFileSettings mySettings,
+    toolSettings = sToolSettings mySettings,
+    targetPlatform = sTargetPlatform mySettings,
+    platformMisc = sPlatformMisc mySettings,
+    rawSettings = sRawSettings mySettings,
+    generalFlags = EnumSet.fromList (defaultFlags mySettings),
+  }
+\end{lstlisting}
+The fields with bottom values illustrates another possible use case: explicitly deferring missing fields check to runtime.
+While generally it's considered beneficial to catch missing fields during compile-time, it's clear that in some cases this cannot be easily done
+because of technical debt. Sometimes it's enough to wrap the field inside a \texttt{Maybe}, but it is not without its downsides.
+Providing a panic value as a temporary placeholder allows for better error messages in case of a programming error, as well as silencing any 
+\texttt{-Wmissing-fields} warnings. With default field values this can be done once, globally instead of having to manually ensure it in every constructor.
+
 \chapter{GHC architecture}
 This section contains an abridged overview of the architecture of the frontend of the GHC compiler to serve as background for implementation details provided later.
 The compilation process in the GHC compiler consists of 6 main phases \cite{GHCIntermediateForms}, the first 4 of which are:
@@ -730,8 +765,9 @@ so any changes that are little more than syntactic sugar should be implemented a
 \chapter{Syntax}
 Among a wide variety of languages supporting providing default values to fields of data structures, there has been a virtually unanimous agreement on the syntax used for providing the default values.
 Any language that supports this feature on the compiler level seems to agree on the base syntax being \texttt{field\_name = value}, with minor variations depending on the given language's syntax for field type annotations.
-Thus, declaring an integer field with default value of 1 in C++, Java, and likely many others, looks like this: \texttt{\textcolor{Violet}{int} x = \textcolor{BrickRed}{1};}.
-As another example, the same is accomplished in TypeScript with the syntax \texttt{x:\ \textcolor{Violet}{number} = \textcolor{BrickRed}{1},}.
+Thus, declaring an integer field with default value of 1 in C++, Java, and many others, looks like this: \texttt{\textcolor{Violet}{int} x = \textcolor{BrickRed}{1};}.
+As another example, the same is accomplished in TypeScript with the syntax \texttt{x:\ \textcolor{Violet}{number} = \textcolor{BrickRed}{1},}. 
+Many other examples presented in \ref{subs:modernexamples} also follow this pattern.
 
 \section{Syntax for declaring a default field value}
 With that in mind, we needed to accommodate the \texttt{field\_name = value} syntax to existing syntax for Haskell records.
@@ -775,21 +811,53 @@ A regular top-level Haskell binding with a type annotation can have multiple for
   \end{lstlisting}
 \end{enumerate}
 
-By far, the most popular of these variants is \ref*{vb:popular}, but it's not readily adaptable to record fields.
+By far the most popular of these variants is \ref*{vb:popular}, but it's not readily adaptable to record fields.
 To choose between \ref*{vb:good} and \ref*{vb:bad}, we note that \ref*{vb:bad} is very rarely used in real code.
 Furthermore, at first glance, it might seem as if the default value is being assigned to the type, not the field name.
 In contrast, \ref*{vb:good} looks like a familiar construct --- a binding name without a type annotation, and its right-hand-side expression with one (and it is already parsed as such by GHC).
 
 \subsection{Omitting the type signature}
-It would seem like a good idea to allow users to omit the type signature for a field with a user-supplied default value.
+It would seem like a good idea to allow users to omit the type signature for a field with a user-supplied default value:
+\begin{lstlisting}
+  data NewRecordType = NewRecordTypeCtor { fieldName = expression }
+\end{lstlisting}
 After all, it seems possible to always infer the type from the defaulting expression.
 As it turns out, the reality is not that simple.
 Many tools that are part of the GHC project currently need to be able to present the type of all fields of a given datatype without the information provided by a full typecheck of the program.
-The list of these tools includes the typechecker itself.
-While the typechecker itself could theoretically be modified to avoid this problem, forcing a typecheck on other tools (such as Haddock) would unnecessarily slow down their performance without a noticeable gain.
-As providing type annotations is a good practice in almost all use cases and virtually all existing code already has to do so for all their record fields, this loss of functionality seems to have negligible cost.
+The list of these tools includes Haddock, but also the typechecker itself.
+While the typechecker itself could theoretically be modified to avoid this problem, 
+forcing a typecheck on other tools (such as Haddock) would unnecessarily slow down their performance without a noticeable gain.
+As providing type annotations is a good practice in almost all use cases and virtually all existing code already has to do so 
+for all their record fields, this potential loss in functionality seems to have negligible cost.
 
-
+\subsection{Multiple names in one line}
+Regular Haskelly syntax for field declarations allows for multiple fields of the same type to be written on one line:
+\begin{lstlisting}
+  data NewRecordType 
+    = NewRecordTypeCtor { 
+      fieldName1, fieldName2, fieldName3 :: FieldType 
+    }
+\end{lstlisting}
+It's not a widely used feature, especially given its counterpart in C/C++ is considered bad style.
+Its use is not particularly readable either: programmers usually visually judge the number of fields in a type by the number of lines.
+It also makes the code harder to document as it's not clear how individual fields should be documented, and the Haddock docs \cite{HaddockRecordFields}
+do not take that syntax into account.
+With that in mind, complicating this syntax even further with default values does not seem desirable:
+\begin{lstlisting}
+  data NewRecordType 
+    = NewRecordTypeCtor { 
+      fieldName1 = expr1, fieldName2 = expr2, fieldName3 = expr3 :: FieldType 
+    }
+\end{lstlisting}
+Furthermore, it could create ambiguity for the reader when only the last field is defaulted:
+\begin{lstlisting}
+  data NewRecordType 
+    = NewRecordTypeCtor { 
+      fieldName1, fieldName2, fieldName3 = expr :: FieldType 
+    }
+\end{lstlisting}
+In this example, it is not immediately clear whether \texttt{expr} is the default value for all fields, or only \texttt{fieldName3}.
+For these reasons, this feature was not included in the proposed syntax.
 \section{Syntax for use of defaulted fields}
 
 The chosen method for initializing fields with their default value is through braced record syntax.
@@ -798,7 +866,11 @@ Omitting a given defaulted field is the only requirement for activating the mech
 Since omitting fields in record construction was already allowed (but produced a compile-time warning), no syntax change is necessary.
 
 \section{Summary}
+All in all, the new syntax is as follows: inside a record constructor definitions, any field declared in the form \texttt{name :: Type}
+can optionally be annotated with a default value: \texttt{name = <expr> :: Type}, 
+where \texttt{<expr>} is an arbitrary expression (of the same type as the field).
 Below is a complete example of a Haskell record type with one of its fields defaulted. 
+
 In our view, the final syntax combines the best compromise between readability, new user learning curve, and implementation viability.
 
 \begin{lstlisting}[escapeinside={(*}{*)}]
@@ -809,7 +881,6 @@ data NewRecordType
    }
 \end{lstlisting}
 No syntax change is necessary for the case of the usage of default values.
-
 
 \chapter{Semantics}
 \section{Examples}
@@ -992,9 +1063,525 @@ Unfortunately, there is no way to verify these assumptions without developing an
 This work proposed a custom syntax for default record fields in Haskell, detailed a proof-of-concept implementation and discussed the design choices
 and tradeoffs behind the syntax and semantics of the implementation.
 
-From this work it is clear that an implementation of default record field values in Haskell is possible, usable useful and hopefully soon implemented
+From this work it is clear that an implementation of default record field values in Haskell is possible, usable, useful and hopefully soon implemented
 into the mainline GHC. The syntax is clear and intuitive and the behavior of programs that use it is predictable and efficient.
+Programs using the extension are simpler, more expressive and have the potential to be faster than ones written without the extension.
+
 The next step is to submit a proposal for the syntax to be accepted as a language extension in the GHC compiler, to bring this feature to the widest possible audience.
+Further discussion with the GHC maintainers will be required to finalize the design choices and implementation details, and this work will serve
+as a good starting point for that discussion.
+
+
+\appendix
+
+\chapter{GHC DynFlags type definition}
+\label{appendix:typedef}
+\begin{lstlisting}[numbers=left,stepnumber=1]
+  data DynFlags = DynFlags {
+    ghcMode               :: GhcMode,
+    ghcLink               :: GhcLink,
+    backend               :: !Backend,
+     -- ^ The backend to use (if any).
+     --
+     -- Whenever you change the backend, also make sure to set 'ghcLink' to
+     -- something sensible.
+     --
+     -- 'NoBackend' can be used to avoid generating any output, however, note that:
+     --
+     --  * If a program uses Template Haskell the typechecker may need to run code
+     --    from an imported module.  To facilitate this, code generation is enabled
+     --    for modules imported by modules that use template haskell, using the
+     --    default backend for the platform.
+     --    See Note [-fno-code mode].
+  
+  
+    -- formerly Settings
+    ghcNameVersion    :: {-# UNPACK #-} !GhcNameVersion,
+    fileSettings      :: {-# UNPACK #-} !FileSettings,
+    targetPlatform    :: Platform,       -- Filled in by SysTools
+    toolSettings      :: {-# UNPACK #-} !ToolSettings,
+    platformMisc      :: {-# UNPACK #-} !PlatformMisc,
+    rawSettings       :: [(String, String)],
+    tmpDir            :: TempDir,
+  
+    llvmOptLevel          :: Int,         -- ^ LLVM optimisation level
+    verbosity             :: Int,         -- ^ Verbosity level: see Note [Verbosity levels]
+    debugLevel            :: Int,         -- ^ How much debug information to produce
+    simplPhases           :: Int,         -- ^ Number of simplifier phases
+    maxSimplIterations    :: Int,         -- ^ Max simplifier iterations
+    ruleCheck             :: Maybe String,
+    strictnessBefore      :: [Int],       -- ^ Additional demand analysis
+  
+    parMakeCount          :: Maybe Int,   -- ^ The number of modules to compile in parallel
+                                          --   in --make mode, where Nothing ==> compile as
+                                          --   many in parallel as there are CPUs.
+  
+    enableTimeStats       :: Bool,        -- ^ Enable RTS timing statistics?
+    ghcHeapSize           :: Maybe Int,   -- ^ The heap size to set.
+  
+    maxRelevantBinds      :: Maybe Int,   -- ^ Maximum number of bindings from the type envt
+                                          --   to show in type error messages
+    maxValidHoleFits      :: Maybe Int,   -- ^ Maximum number of hole fits to show
+                                          --   in typed hole error messages
+    maxRefHoleFits        :: Maybe Int,   -- ^ Maximum number of refinement hole
+                                          --   fits to show in typed hole error
+                                          --   messages
+    refLevelHoleFits      :: Maybe Int,   -- ^ Maximum level of refinement for
+                                          --   refinement hole fits in typed hole
+                                          --   error messages
+    maxUncoveredPatterns  :: Int,         -- ^ Maximum number of unmatched patterns to show
+                                          --   in non-exhaustiveness warnings
+    maxPmCheckModels      :: Int,         -- ^ Soft limit on the number of models
+                                          --   the pattern match checker checks
+                                          --   a pattern against. A safe guard
+                                          --   against exponential blow-up.
+    simplTickFactor       :: Int,         -- ^ Multiplier for simplifier ticks
+    dmdUnboxWidth         :: !Int,        -- ^ Whether DmdAnal should optimistically put an
+                                          --   Unboxed demand on returned products with at most
+                                          --   this number of fields
+    specConstrThreshold   :: Maybe Int,   -- ^ Threshold for SpecConstr
+    specConstrCount       :: Maybe Int,   -- ^ Max number of specialisations for any one function
+    specConstrRecursive   :: Int,         -- ^ Max number of specialisations for recursive types
+                                          --   Not optional; otherwise ForceSpecConstr can diverge.
+    binBlobThreshold      :: Maybe Word,  -- ^ Binary literals (e.g. strings) whose size is above
+                                          --   this threshold will be dumped in a binary file
+                                          --   by the assembler code generator. 0 and Nothing disables
+                                          --   this feature. See 'GHC.StgToCmm.Config'.
+    liberateCaseThreshold :: Maybe Int,   -- ^ Threshold for LiberateCase
+    floatLamArgs          :: Maybe Int,   -- ^ Arg count for lambda floating
+                                          --   See 'GHC.Core.Opt.Monad.FloatOutSwitches'
+  
+    liftLamsRecArgs       :: Maybe Int,   -- ^ Maximum number of arguments after lambda lifting a
+                                          --   recursive function.
+    liftLamsNonRecArgs    :: Maybe Int,   -- ^ Maximum number of arguments after lambda lifting a
+                                          --   non-recursive function.
+    liftLamsKnown         :: Bool,        -- ^ Lambda lift even when this turns a known call
+                                          --   into an unknown call.
+  
+    cmmProcAlignment      :: Maybe Int,   -- ^ Align Cmm functions at this boundary or use default.
+  
+    historySize           :: Int,         -- ^ Simplification history size
+  
+    importPaths           :: [FilePath],
+    mainModuleNameIs      :: ModuleName,
+    mainFunIs             :: Maybe String,
+    reductionDepth        :: IntWithInf,   -- ^ Typechecker maximum stack depth
+    solverIterations      :: IntWithInf,   -- ^ Number of iterations in the constraints solver
+                                           --   Typically only 1 is needed
+  
+    homeUnitId_             :: UnitId,                 -- ^ Target home unit-id
+    homeUnitInstanceOf_     :: Maybe UnitId,           -- ^ Id of the unit to instantiate
+    homeUnitInstantiations_ :: [(ModuleName, Module)], -- ^ Module instantiations
+  
+    -- Note [Filepaths and Multiple Home Units]
+    workingDirectory      :: Maybe FilePath,
+    thisPackageName       :: Maybe String, -- ^ What the package is called, use with multiple home units
+    hiddenModules         :: Set.Set ModuleName,
+    reexportedModules     :: Set.Set ModuleName,
+  
+    -- ways
+    targetWays_           :: Ways,         -- ^ Target way flags from the command line
+  
+    -- For object splitting
+    splitInfo             :: Maybe (String,Int),
+  
+    -- paths etc.
+    objectDir             :: Maybe String,
+    dylibInstallName      :: Maybe String,
+    hiDir                 :: Maybe String,
+    hieDir                :: Maybe String,
+    stubDir               :: Maybe String,
+    dumpDir               :: Maybe String,
+  
+    objectSuf_            :: String,
+    hcSuf                 :: String,
+    hiSuf_                :: String,
+    hieSuf                :: String,
+  
+    dynObjectSuf_         :: String,
+    dynHiSuf_             :: String,
+  
+    outputFile_           :: Maybe String,
+    dynOutputFile_        :: Maybe String,
+    outputHi              :: Maybe String,
+    dynOutputHi           :: Maybe String,
+    dynLibLoader          :: DynLibLoader,
+  
+    dynamicNow            :: !Bool, -- ^ Indicate if we are now generating dynamic output
+                                    -- because of -dynamic-too. This predicate is
+                                    -- used to query the appropriate fields
+                                    -- (outputFile/dynOutputFile, ways, etc.)
+  
+    -- | This defaults to 'non-module'. It can be set by
+    -- 'GHC.Driver.Pipeline.setDumpPrefix' or 'ghc.GHCi.UI.runStmt' based on
+    -- where its output is going.
+    dumpPrefix            :: FilePath,
+  
+    -- | Override the 'dumpPrefix' set by 'GHC.Driver.Pipeline.setDumpPrefix'
+    --    or 'ghc.GHCi.UI.runStmt'.
+    --    Set by @-ddump-file-prefix@
+    dumpPrefixForce       :: Maybe FilePath,
+  
+    ldInputs              :: [Option],
+  
+    includePaths          :: IncludeSpecs,
+    libraryPaths          :: [String],
+    frameworkPaths        :: [String],    -- used on darwin only
+    cmdlineFrameworks     :: [String],    -- ditto
+  
+    rtsOpts               :: Maybe String,
+    rtsOptsEnabled        :: RtsOptsEnabled,
+    rtsOptsSuggestions    :: Bool,
+  
+    hpcDir                :: String,      -- ^ Path to store the .mix files
+  
+    -- Plugins
+    pluginModNames        :: [ModuleName],
+      -- ^ the @-fplugin@ flags given on the command line, in *reverse*
+      -- order that they're specified on the command line.
+    pluginModNameOpts     :: [(ModuleName,String)],
+    frontendPluginOpts    :: [String],
+      -- ^ the @-ffrontend-opt@ flags given on the command line, in *reverse*
+      -- order that they're specified on the command line.
+  
+    externalPluginSpecs   :: [ExternalPluginSpec],
+      -- ^ External plugins loaded from shared libraries
+  
+    --  For ghc -M
+    depMakefile           :: FilePath,
+    depIncludePkgDeps     :: Bool,
+    depIncludeCppDeps     :: Bool,
+    depExcludeMods        :: [ModuleName],
+    depSuffixes           :: [String],
+  
+    --  Package flags
+    packageDBFlags        :: [PackageDBFlag],
+          -- ^ The @-package-db@ flags given on the command line, In
+          -- *reverse* order that they're specified on the command line.
+          -- This is intended to be applied with the list of "initial"
+          -- package databases derived from @GHC_PACKAGE_PATH@; see
+          -- 'getUnitDbRefs'.
+  
+    ignorePackageFlags    :: [IgnorePackageFlag],
+          -- ^ The @-ignore-package@ flags from the command line.
+          -- In *reverse* order that they're specified on the command line.
+    packageFlags          :: [PackageFlag],
+          -- ^ The @-package@ and @-hide-package@ flags from the command-line.
+          -- In *reverse* order that they're specified on the command line.
+    pluginPackageFlags    :: [PackageFlag],
+          -- ^ The @-plugin-package-id@ flags from command line.
+          -- In *reverse* order that they're specified on the command line.
+    trustFlags            :: [TrustFlag],
+          -- ^ The @-trust@ and @-distrust@ flags.
+          -- In *reverse* order that they're specified on the command line.
+    packageEnv            :: Maybe FilePath,
+          -- ^ Filepath to the package environment file (if overriding default)
+  
+  
+    -- hsc dynamic flags
+    dumpFlags             :: EnumSet DumpFlag,
+    generalFlags          :: EnumSet GeneralFlag,
+    warningFlags          :: EnumSet WarningFlag,
+    fatalWarningFlags     :: EnumSet WarningFlag,
+    -- Don't change this without updating extensionFlags:
+    language              :: Maybe Language,
+    -- | Safe Haskell mode
+    safeHaskell           :: SafeHaskellMode,
+    safeInfer             :: Bool,
+    safeInferred          :: Bool,
+    -- We store the location of where some extension and flags were turned on so
+    -- we can produce accurate error messages when Safe Haskell fails due to
+    -- them.
+    thOnLoc               :: SrcSpan,
+    newDerivOnLoc         :: SrcSpan,
+    deriveViaOnLoc        :: SrcSpan,
+    overlapInstLoc        :: SrcSpan,
+    incoherentOnLoc       :: SrcSpan,
+    pkgTrustOnLoc         :: SrcSpan,
+    warnSafeOnLoc         :: SrcSpan,
+    warnUnsafeOnLoc       :: SrcSpan,
+    trustworthyOnLoc      :: SrcSpan,
+    -- Don't change this without updating extensionFlags:
+    -- Here we collect the settings of the language extensions
+    -- from the command line, the ghci config file and
+    -- from interactive :set / :seti commands.
+    extensions            :: [OnOff LangExt.Extension],
+    -- extensionFlags should always be equal to
+    --     flattenExtensionFlags language extensions
+    -- LangExt.Extension is defined in libraries/ghc-boot so that it can be used
+    -- by template-haskell
+    extensionFlags        :: EnumSet LangExt.Extension,
+  
+    -- | Unfolding control
+    -- See Note [Discounts and thresholds] in GHC.Core.Unfold
+    unfoldingOpts         :: !UnfoldingOpts,
+  
+    maxWorkerArgs         :: Int,
+  
+    ghciHistSize          :: Int,
+  
+    flushOut              :: FlushOut,
+  
+    ghcVersionFile        :: Maybe FilePath,
+    haddockOptions        :: Maybe String,
+  
+    -- | GHCi scripts specified by -ghci-script, in reverse order
+    ghciScripts           :: [String],
+  
+    -- Output style options
+    pprUserLength         :: Int,
+    pprCols               :: Int,
+  
+    useUnicode            :: Bool,
+    useColor              :: OverridingBool,
+    canUseColor           :: Bool,
+    colScheme             :: Col.Scheme,
+  
+    -- | what kind of {-# SCC #-} to add automatically
+    profAuto              :: ProfAuto,
+    callerCcFilters       :: [CallerCcFilter],
+  
+    interactivePrint      :: Maybe String,
+  
+    -- | Machine dependent flags (-m\<blah> stuff)
+    sseVersion            :: Maybe SseVersion,
+    bmiVersion            :: Maybe BmiVersion,
+    avx                   :: Bool,
+    avx2                  :: Bool,
+    avx512cd              :: Bool, -- Enable AVX-512 Conflict Detection Instructions.
+    avx512er              :: Bool, -- Enable AVX-512 Exponential and Reciprocal Instructions.
+    avx512f               :: Bool, -- Enable AVX-512 instructions.
+    avx512pf              :: Bool, -- Enable AVX-512 PreFetch Instructions.
+  
+    -- | Run-time linker information (what options we need, etc.)
+    rtldInfo              :: IORef (Maybe LinkerInfo),
+  
+    -- | Run-time C compiler information
+    rtccInfo              :: IORef (Maybe CompilerInfo),
+  
+    -- | Run-time assembler information
+    rtasmInfo              :: IORef (Maybe CompilerInfo),
+  
+    -- Constants used to control the amount of optimization done.
+  
+    -- | Max size, in bytes, of inline array allocations.
+    maxInlineAllocSize    :: Int,
+  
+    -- | Only inline memcpy if it generates no more than this many
+    -- pseudo (roughly: Cmm) instructions.
+    maxInlineMemcpyInsns  :: Int,
+  
+    -- | Only inline memset if it generates no more than this many
+    -- pseudo (roughly: Cmm) instructions.
+    maxInlineMemsetInsns  :: Int,
+  
+    -- | Reverse the order of error messages in GHC/GHCi
+    reverseErrors         :: Bool,
+  
+    -- | Limit the maximum number of errors to show
+    maxErrors             :: Maybe Int,
+  
+    -- | Unique supply configuration for testing build determinism
+    initialUnique         :: Word,
+    uniqueIncrement       :: Int,
+      -- 'Int' because it can be used to test uniques in decreasing order.
+  
+    -- | Temporary: CFG Edge weights for fast iterations
+    cfgWeights            :: Weights
+  }
+  
+\end{lstlisting}
+
+\chapter{GHC DynFlags default value}
+\label{appendix:defval}
+\begin{lstlisting}[numbers=left,stepnumber=1]
+  -- | The normal 'DynFlags'. Note that they are not suitable for use in this form
+  -- and must be fully initialized by 'GHC.runGhc' first.
+  defaultDynFlags :: Settings -> DynFlags
+  defaultDynFlags mySettings =
+  -- See Note [Updating flag description in the User's Guide]
+       DynFlags {
+          ghcMode                 = CompManager,
+          ghcLink                 = LinkBinary,
+          backend                 = platformDefaultBackend (sTargetPlatform mySettings),
+          verbosity               = 0,
+          debugLevel              = 0,
+          simplPhases             = 2,
+          maxSimplIterations      = 4,
+          ruleCheck               = Nothing,
+          binBlobThreshold        = Just 500000, -- 500K is a good default (see #16190)
+          maxRelevantBinds        = Just 6,
+          maxValidHoleFits   = Just 6,
+          maxRefHoleFits     = Just 6,
+          refLevelHoleFits   = Nothing,
+          maxUncoveredPatterns    = 4,
+          maxPmCheckModels        = 30,
+          simplTickFactor         = 100,
+          dmdUnboxWidth           = 3,      -- Default: Assume an unboxed demand on function bodies returning a triple
+          specConstrThreshold     = Just 2000,
+          specConstrCount         = Just 3,
+          specConstrRecursive     = 3,
+          liberateCaseThreshold   = Just 2000,
+          floatLamArgs            = Just 0, -- Default: float only if no fvs
+          liftLamsRecArgs         = Just 5, -- Default: the number of available argument hardware registers on x86_64
+          liftLamsNonRecArgs      = Just 5, -- Default: the number of available argument hardware registers on x86_64
+          liftLamsKnown           = False,  -- Default: don't turn known calls into unknown ones
+          cmmProcAlignment        = Nothing,
+  
+          historySize             = 20,
+          strictnessBefore        = [],
+  
+          parMakeCount            = Just 1,
+  
+          enableTimeStats         = False,
+          ghcHeapSize             = Nothing,
+  
+          importPaths             = ["."],
+          mainModuleNameIs        = mAIN_NAME,
+          mainFunIs               = Nothing,
+          reductionDepth          = treatZeroAsInf mAX_REDUCTION_DEPTH,
+          solverIterations        = treatZeroAsInf mAX_SOLVER_ITERATIONS,
+  
+          homeUnitId_             = mainUnitId,
+          homeUnitInstanceOf_     = Nothing,
+          homeUnitInstantiations_ = [],
+  
+          workingDirectory        = Nothing,
+          thisPackageName         = Nothing,
+          hiddenModules           = Set.empty,
+          reexportedModules       = Set.empty,
+  
+          objectDir               = Nothing,
+          dylibInstallName        = Nothing,
+          hiDir                   = Nothing,
+          hieDir                  = Nothing,
+          stubDir                 = Nothing,
+          dumpDir                 = Nothing,
+  
+          objectSuf_              = phaseInputExt StopLn,
+          hcSuf                   = phaseInputExt HCc,
+          hiSuf_                  = "hi",
+          hieSuf                  = "hie",
+  
+          dynObjectSuf_           = "dyn_" ++ phaseInputExt StopLn,
+          dynHiSuf_               = "dyn_hi",
+          dynamicNow              = False,
+  
+          pluginModNames          = [],
+          pluginModNameOpts       = [],
+          frontendPluginOpts      = [],
+  
+          externalPluginSpecs     = [],
+  
+          outputFile_             = Nothing,
+          dynOutputFile_          = Nothing,
+          outputHi                = Nothing,
+          dynOutputHi             = Nothing,
+          dynLibLoader            = SystemDependent,
+          dumpPrefix              = "non-module.",
+          dumpPrefixForce         = Nothing,
+          ldInputs                = [],
+          includePaths            = IncludeSpecs [] [] [],
+          libraryPaths            = [],
+          frameworkPaths          = [],
+          cmdlineFrameworks       = [],
+          rtsOpts                 = Nothing,
+          rtsOptsEnabled          = RtsOptsSafeOnly,
+          rtsOptsSuggestions      = True,
+  
+          hpcDir                  = ".hpc",
+  
+          packageDBFlags          = [],
+          packageFlags            = [],
+          pluginPackageFlags      = [],
+          ignorePackageFlags      = [],
+          trustFlags              = [],
+          packageEnv              = Nothing,
+          targetWays_             = Set.empty,
+          splitInfo               = Nothing,
+  
+          ghcNameVersion = sGhcNameVersion mySettings,
+          fileSettings = sFileSettings mySettings,
+          toolSettings = sToolSettings mySettings,
+          targetPlatform = sTargetPlatform mySettings,
+          platformMisc = sPlatformMisc mySettings,
+          rawSettings = sRawSettings mySettings,
+  
+          tmpDir                  = panic "defaultDynFlags: uninitialized tmpDir",
+  
+          llvmOptLevel            = 0,
+  
+          -- ghc -M values
+          depMakefile       = "Makefile",
+          depIncludePkgDeps = False,
+          depIncludeCppDeps = False,
+          depExcludeMods    = [],
+          depSuffixes       = [],
+          -- end of ghc -M values
+          ghcVersionFile = Nothing,
+          haddockOptions = Nothing,
+          dumpFlags = EnumSet.empty,
+          generalFlags = EnumSet.fromList (defaultFlags mySettings),
+          warningFlags = EnumSet.fromList standardWarnings,
+          fatalWarningFlags = EnumSet.empty,
+          ghciScripts = [],
+          language = Nothing,
+          safeHaskell = Sf_None,
+          safeInfer   = True,
+          safeInferred = True,
+          thOnLoc = noSrcSpan,
+          newDerivOnLoc = noSrcSpan,
+          deriveViaOnLoc = noSrcSpan,
+          overlapInstLoc = noSrcSpan,
+          incoherentOnLoc = noSrcSpan,
+          pkgTrustOnLoc = noSrcSpan,
+          warnSafeOnLoc = noSrcSpan,
+          warnUnsafeOnLoc = noSrcSpan,
+          trustworthyOnLoc = noSrcSpan,
+          extensions = [],
+          extensionFlags = flattenExtensionFlags Nothing [],
+  
+          unfoldingOpts = defaultUnfoldingOpts,
+          maxWorkerArgs = 10,
+  
+          ghciHistSize = 50, -- keep a log of length 50 by default
+  
+          flushOut = defaultFlushOut,
+          pprUserLength = 5,
+          pprCols = 100,
+          useUnicode = False,
+          useColor = Auto,
+          canUseColor = False,
+          colScheme = Col.defaultScheme,
+          profAuto = NoProfAuto,
+          callerCcFilters = [],
+          interactivePrint = Nothing,
+          sseVersion = Nothing,
+          bmiVersion = Nothing,
+          avx = False,
+          avx2 = False,
+          avx512cd = False,
+          avx512er = False,
+          avx512f = False,
+          avx512pf = False,
+          rtldInfo = panic "defaultDynFlags: no rtldInfo",
+          rtccInfo = panic "defaultDynFlags: no rtccInfo",
+          rtasmInfo = panic "defaultDynFlags: no rtasmInfo",
+  
+          maxInlineAllocSize = 128,
+          maxInlineMemcpyInsns = 32,
+          maxInlineMemsetInsns = 32,
+  
+          initialUnique = 0,
+          uniqueIncrement = 1,
+  
+          reverseErrors = False,
+          maxErrors     = Nothing,
+          cfgWeights    = defaultWeights
+        }
+  
+\end{lstlisting}
+
 
 \bibliographystyle{acm} \bibliography{bibliography}
 
