@@ -282,17 +282,18 @@ or default initialization via constructor functions, like in C++.
 A notable exception is Common Lisp, which being released in 1985 can be counted 
 as one of the earliest examples of records with dedicated syntax for default field values \cite{CommonLisp}.
 With the rise of popularity of programming and the coming of the Internet era, 
-syntactic support for default values has suddenly changed from obscure to ubiquitous, as well see from the examples in the next section.
+syntactic support for default values has suddenly changed from obscure to ubiquitous, as will be clear from the examples in the next section.
 \subsection{Modern examples in other languages}\label{subs:modernexamples}
 Examining 10 of the most popular general-purpose programming languages in 2022,
 most of them provide in their latest version some utility for specifying default field values,
 either through constructor functions or dedicated syntax.
 Chosen programming languages are: C++, Java, JavaScript, TypeScript, Python, C\#, PHP, Go, Kotlin and Rust.
-Choice was based on statistics from \cite{StatistaProgLangs}, after removing markup languages, 
+The choice of languages was based on statistics from \cite{StatistaProgLangs}, after removing markup languages, 
 query languages and scripting languages, as well as C which was already discussed above.
-Of course, any programming language offers support for default values through creating an object and using it as a "default".
+
+Of course, any programming language offers support for default values through creating an object and using it as a "default" object.
 This approach is not investigated, as it requires no help from the language to implement, unless there is a language-wide
-convention on the details on how the object is supposed to be created. 
+convention on the details on how the object is supposed to be created. Furthermore, this approach has other drawbacks discussed in section \ref{ss:prior}.
 
 
 The below table illustrates support for field defaulting in the above languages.
@@ -316,8 +317,8 @@ The below table illustrates support for field defaulting in the above languages.
   \label{fig:langtbl}    
 \end{table}
 Below are examples of each syntactic construct mentioned in the table. 
-Note that, of course, having parameterless constructor syntax also allows for defaulting values
-of an arbitrary subset of fields through adding parameters to the constructor.
+Note that, of course, languages supporting the parameterless constructor syntax allow not only for providing default values for all 
+fields at once, but also for providing values of an arbitrary subset of fields through simply adding parameters to the constructor.
 \begin{itemize}
   \item C++: dedicated syntax (C++11 onwards) \cite{Cpp11}
   \begin{lstlisting}[style=cpp]
@@ -381,7 +382,7 @@ of an arbitrary subset of fields through adding parameters to the constructor.
       this.age = 21;
     }
   \end{lstlisting}
-  This defines a constructor function for \texttt{Person}, and method are added via prototypes.
+  This defines a constructor function for \texttt{Person}, with any required methods being later added to the function's prototype.
   \item TypeScript: dedicated syntax
   \begin{lstlisting}[style=TypeScript]
     class Person {
@@ -492,22 +493,22 @@ of an arbitrary subset of fields through adding parameters to the constructor.
     }
   \end{lstlisting}
   This approach is limited by only being able to provide default values to all fields 
-  of the struct at once.
+  of the struct at once. It also is not an example of syntactic support, as all that is required is a trait.
+  Because of that, use of this trait for default construction relies entirely on convention.
 \end{itemize}
 
 \subsection{Conclusion}
 From the above considerations it is clear that the vast majority of modern languages 
 offer a convenient syntax for providing default field values. 
-Comparing that to the historical situation where no major language offered it,
+Comparing that to the historical situation where it was not offered by any major language,
 it is clear that it has become a quality-of-life feature 
 that today's programmers have come to expect from their language of choice.
-Thus, such an addition is very likely to positively impact the software development
-experience for Haskell programmers.
+Thus, an addition of such a feature is likely to make teams and developers more eager to adopt Haskell as their language of choice.
 
 \section{Field defaulting in Haskell}
 \subsection{Introduction}
 Despite record syntax's relative ubiquity in modern functional programming languages, most implementations
-of it (e.g. OCaml, F\#, ReasonML) have an important usability feature missing when compared
+of it (e.g. OCaml, F\#, ReasonML and of course Haskell) have an important usability feature missing when compared
 to their imperative counterparts --- the ability to leave out certain fields empty
 when creating a concrete object of a given type. Especially when dealing with
 data structures containing a great number of fields, e.g. types that represent
@@ -516,36 +517,50 @@ of the structure with a value can become unwieldy very quickly.
 The only example of this syntax in a popular functional programming language seems to be Erlang,
 where records can be default-constructed and the fields without default values are undefined \cite{ErlangRecords}.
 
-\subsection{Prior attempts at solving the issue}
+\subsection{Prior attempts at solving the issue}\label{ss:prior}
 This issue has been heretofore partially mitigated thanks to another common feature of record syntax in programming languages: the record update syntax. 
 It allows for the construction of a record in such a way that any unspecified fields are copied over from an already existing record. 
-If the author of a type then provides their users with a globally visible ''default'' object with all its fields already filled out, a user can utilize the record update syntax to mimic the desired functionality.
+If the author of a type then provides their users with a globally visible ''default'' object with all its fields already filled out, 
+a user of the type can utilize the record update syntax to mimic the functionality offered by default field values.
 
 However, this approach is not without its drawbacks.
 Firstly, it can prove a challenge if some fields don't lend themselves easily to default values. 
 For example, a data type might have an ID component along with invariants guaranteeing its uniqueness. 
 In such a situation, great care must be taken when creating a new record to ensure that the ID component is always modified from the value provided by default.
-It is also possible to circumvent that using optional types (like Haskell's \texttt{Maybe}), but this makes the data structure cumbersome to use for anything other than its creation.
-Unlike it is for its imperative counterpart, this approach does not offer the programmer any automated systems that would detect the absence of such a value.
-Given that a major advantage functional languages tout over others is the strength of their automated compile-time error detection, this is an area in which clear improvement can be made.
+It is also possible to circumvent that using optional types (like Haskell's \texttt{Maybe}), 
+but this makes the field value unnecessarily cumbersome to access after the creation of the record.
+Unlike its imperative counterpart, this approach does not offer the programmer any automated systems 
+that would detect the absence of a value that is necessary for the type.
+Given that a major advantage functional languages tout over others is the strength of their automated compile-time error detection, 
+this is an area in which clear improvement can be made.
 
-In some languages, like Haskell, it is also possible to create a record without specifying all of its fields.
+In Haskell, as well as other languages, it is also possible to create a record without specifying all of its fields.
+This way it is not necessary to provide the troublesome fields with any value, relying on the user to add it later.
 However, in that case, the fields are still automatically filled with bottom values.
-To make matters worse, such a creation creates compile-time warnings when defining the default record, and no compile-time warnings when some of the bottoms are not replaced.
+To make matters worse, such a creation creates compile-time warnings (with \texttt{-Wmissing-fields} enabled) when defining the default record, 
+and no compile-time warnings when some of the bottoms are not replaced in a record update.
 Because of that, this solution is even worse than the previous one.
 
+This issue is completely solved with the advent of default field value syntax: all fields that can't be easily defaulted, 
+are just not given a default value, and with \texttt{-Wmissing-fields} we get compile-time warnings whenever any non-defaulted field is missing. 
+
 Secondly, the necessity of creating a custom object to use as a default can lend itself to improper coding style and more difficulty in codebase navigation.
-In order to create a default object, one must first decide on a name that it will be given, which in large codebases necessitates either coming up with a naming convention or dealing with the repercussions of inconsistent naming. 
-Furthermore, there is no requirement for the programmers to place the default object in the same place, or even in the same file as the definition of the type itself.
+In order to create a default object, one must first decide on a name that it will be given, which in large codebases 
+necessitates either coming up with a naming convention or dealing with the repercussions of inconsistent naming. 
+Furthermore, there is no requirement for the programmers to place the default object in the same close location, 
+or even in the same file as the definition of the type itself.
 This can quickly make the issue of finding the default object a true detective's task. 
+
+By contrast, none of these problems are present when using default field values.
 
 \subsection{Direct use cases}
 Aside from the obvious functionality improvements, allowing default fields in records has positive impact on the overall Haskell ecosystem.
-Many large multi-language codebases, such as the giant monorepos used by Big Tech companies, use interface definition languages
-(IDLs) like Apache Thrift or Google's Protobuf to interface between code written in different languages.
-IDLs usually provide this through a language-agnostic syntax for defining data structures. 
+Many large multi-language codebases, such as the giant monorepos used by large companies, use interface definition languages
+(IDLs) like the ones used in Apache Thrift or Google's Protobuf for interfacing between systems written in different languages.
+Such IDLs usually provide this functionality through a language-agnostic syntax for declaring the general layout of data structures and/or procedures.
 This syntax usually (as is the case in Apache Thrift) contains a way to provide default values for fields of the data structures being defined.
-Because of that, any language that doesn't natively support default field values in data structures will need to use workarounds before being able to interface with IDLs.
+Because of that, any language that doesn't natively support default field values in data structures will need to implement workarounds 
+before codebases written in that language are able to intercommunicate via IDLs.
 
 \subsubsection{Code migrations}
 \newcommand{\user}{\textit{user}}
@@ -688,7 +703,7 @@ The fields with bottom values illustrates another possible use case: explicitly 
 While generally it's considered beneficial to catch missing fields during compile-time, it's clear that in some cases this cannot be easily done
 because of technical debt. Sometimes it's enough to wrap the field inside a \texttt{Maybe}, but it is not without its downsides.
 Providing a panic value as a temporary placeholder allows for better error messages in case of a programming error, as well as silencing any 
-\texttt{-Wmissing-fields} warnings. With default field values this can be done once, globally instead of having to manually ensure it in every constructor.
+\texttt{-Wmissing-fields} warnings. With default field values this can be done once, globally, instead of having to manually ensure it in every constructor.
 
 \chapter{GHC architecture}
 This section contains an abridged overview of the architecture of the frontend of the GHC compiler to serve as background for implementation details provided later.
