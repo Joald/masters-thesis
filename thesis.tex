@@ -193,18 +193,13 @@
 \maketitle
 
 \begin{abstract}
-  This thesis presents a prototype implementation of the syntax
-  and semantics for specifying the default values for fields 
-  of record types in Haskell. The proposed syntax aims to have
-  no impact on existing Haskell code and minimal syntactic intrusion
-  when the proposed feature is used. The use of default values
-  can and will happen only when using the braced record construction
-  syntax already present in Haskell. The syntax for defining default 
-  values for fields follows recognizable conventions from other
-  programming languages in which this feature is present.
-  This feature facilitates more seamless integration of Haskell codebases 
-  into multi-language codebases unified
-  by interface definition languages such as Apache Thrift. 
+This thesis presents a prototype implementation of the syntax and semantics for specifying
+the default values for fields of Haskell record types. The proposed change aims to have no 
+impact on existing Haskell code and minimal syntactic intrusion when the proposed feature 
+is enabled. The use of default values happens only when using the braced record construction syntax 
+already present in Haskell. The syntax for defining default field values follows established
+conventions from other programming languages in which this feature is present. The addition
+of this feature will noticably improve the language's usability in large codebases.
 \end{abstract}
 
 \tableofcontents
@@ -222,8 +217,10 @@ While widely used workarounds are known, they suffer from various problems that 
 This work aims to solve these problems in the case of the Haskell language \cite{HudakHaskell}
 by proposing a custom syntax inside record definitions that enables the programmer to provide a default value to any field of a given record type.
 In the beginning, we further detail the background and motivation behind these changes, as well as examples of problems they solve.
-Then, we outline the syntactic changes applied to the grammar of Haskell alongside alternative solutions and reasoning behind the final choice.
-Following that, we explain in detail the semantic behavior of introduced features and the purely semantic changes to existing constructs.
+For the sake of providing context to subsequent information, we provide a simple overview of the architecture of the GHC compiler.
+Then, we outline the syntactic changes applied to the grammar of Haskell, 
+the semantic behavior of introduced features and the purely semantic changes to existing constructs.
+In all of these, we provide alternative considered solutions and the reasoning behind the final choices.
 We also explain the development process and decisions made when implementing the feature in GHC, the leading compiler of the Haskell language.
 
 
