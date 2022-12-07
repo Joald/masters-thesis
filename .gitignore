@@ -3,7 +3,7 @@ blabla/
 
 # apparently also needed
 __latexindent_temp.tex
-
+.vscode
 
 # Core latex/pdflatex auxiliary files:
 *.aux

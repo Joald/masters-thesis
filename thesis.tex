@@ -13,140 +13,7 @@
     urlcolor=RoyalBlue,
     pdfpagemode=FullScreen,
 }
-
-\definecolor{dkgreen}{rgb}{0,0.6,0}
-\definecolor{gray}{rgb}{0.5,0.5,0.5}
-\definecolor{mauve}{rgb}{0.58,0,0.82}
-\lstset{frame=tb,
-    language=Haskell,
-    aboveskip=3mm,
-    belowskip=3mm,
-    showstringspaces=false,
-    columns=flexible,
-    basicstyle={\small\ttfamily},
-    numbers=none,
-    numberstyle=\tiny\color{gray},
-    keywordstyle=\color{blue},
-    commentstyle=\color{dkgreen},
-    stringstyle=\color{mauve},
-    breaklines=false,
-    breakatwhitespace=true,
-    frame=none,
-    escapeinside={(*}{*)},          % if you want to add LaTeX within your code
-    tabsize=4
-}
-\lstdefinelanguage{JavaScript}{
-  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break, class, this},
-  keywordstyle=\color{blue}\bfseries,
-  ndkeywords={export, boolean, throw, implements, import, string, number, constructor},
-  ndkeywordstyle=\color{darkgray}\bfseries,
-  identifierstyle=\color{black},
-  sensitive=false,
-  comment=[l]{//},
-  morecomment=[s]{/*}{*/},
-  commentstyle=\color{purple}\ttfamily,
-  stringstyle=\color{red}\ttfamily,
-  morestring=[b]',
-  morestring=[b]"
-}
-\lstdefinelanguage{Kotlin}{
-  comment=[l]{//},
-  commentstyle={\color{gray}\ttfamily},
-  emph={filter, first, firstOrNull, forEach, lazy, map, mapNotNull, println},
-  emphstyle={\color{OrangeRed}},
-  identifierstyle=\color{black},
-  keywords={!in, !is, abstract, actual, annotation, as, as?, break, by, catch, class, companion, const, constructor, continue, crossinline, data, delegate, do, dynamic, else, enum, expect, external, false, field, file, final, finally, for, fun, get, if, import, in, infix, init, inline, inner, interface, internal, is, lateinit, noinline, null, object, open, operator, out, override, package, param, private, property, protected, public, receiveris, reified, return, return@, sealed, set, setparam, super, suspend, tailrec, this, throw, true, try, typealias, typeof, val, var, vararg, when, where, while},
-  keywordstyle={\color{NavyBlue}\bfseries},
-  morecomment=[s]{/*}{*/},
-  morestring=[b]",
-  morestring=[s]{"""*}{*"""},
-  ndkeywords={@Deprecated, @JvmField, @JvmName, @JvmOverloads, @JvmStatic, @JvmSynthetic, Array, Byte, Double, Float, Int, Integer, Iterable, Long, Runnable, Short, String, Any, Unit, Nothing},
-  ndkeywordstyle={\color{BurntOrange}\bfseries},
-  sensitive=true,
-  stringstyle={\color{ForestGreen}\ttfamily},
-}
-% rust listings from https://github.com/denki/listings-rust
-\lstdefinelanguage{Rust}{%
-  sensitive%
-, morecomment=[l]{//}%
-, morecomment=[s]{/*}{*/}%
-, moredelim=[s][{\itshape\color[rgb]{0,0,0.75}}]{\#[}{]}%
-, morestring=[b]{"}%
-, alsodigit={}%
-, alsoother={}%
-, alsoletter={!}%
-%
-%
-% [1] reserve keywords
-% [2] traits
-% [3] primitive types
-% [4] type and value constructors
-% [5] identifier
-%
-, morekeywords={break, continue, else, for, if, in, loop, match, return, while}  % control flow keywords
-, morekeywords={as, const, let, move, mut, ref, static}  % in the context of variables
-, morekeywords={dyn, enum, fn, impl, Self, self, struct, trait, type, union, use, where}  % in the context of declarations
-, morekeywords={crate, extern, mod, pub, super}  % in the context of modularisation
-, morekeywords={unsafe}  % markers
-, morekeywords={abstract, alignof, become, box, do, final, macro, offsetof, override, priv, proc, pure, sizeof, typeof, unsized, virtual, yield}  % reserved identifiers
-%
-% grep 'pub trait [A-Za-z][A-Za-z0-9]*' -r . | sed 's/^.*pub trait \([A-Za-z][A-Za-z0-9]*\).*/\1/g' | sort -u | tr '\n' ',' | sed 's/^\(.*\),$/{\1}\n/g' | sed 's/,/, /g'
-, morekeywords=[2]{Add, AddAssign, Any, AsciiExt, AsInner, AsInnerMut, AsMut, AsRawFd, AsRawHandle, AsRawSocket, AsRef, Binary, BitAnd, BitAndAssign, Bitor, BitOr, BitOrAssign, BitXor, BitXorAssign, Borrow, BorrowMut, Boxed, BoxPlace, BufRead, BuildHasher, CastInto, CharExt, Clone, CoerceUnsized, CommandExt, Copy, Debug, DecodableFloat, Default, Deref, DerefMut, DirBuilderExt, DirEntryExt, Display, Div, DivAssign, DoubleEndedIterator, DoubleEndedSearcher, Drop, EnvKey, Eq, Error, ExactSizeIterator, ExitStatusExt, Extend, FileExt, FileTypeExt, Float, Fn, FnBox, FnMut, FnOnce, Freeze, From, FromInner, FromIterator, FromRawFd, FromRawHandle, FromRawSocket, FromStr, FullOps, FusedIterator, Generator, Hash, Hasher, Index, IndexMut, InPlace, Int, Into, IntoCow, IntoInner, IntoIterator, IntoRawFd, IntoRawHandle, IntoRawSocket, IsMinusOne, IsZero, Iterator, JoinHandleExt, LargeInt, LowerExp, LowerHex, MetadataExt, Mul, MulAssign, Neg, Not, Octal, OpenOptionsExt, Ord, OsStrExt, OsStringExt, Packet, PartialEq, PartialOrd, Pattern, PermissionsExt, Place, Placer, Pointer, Product, Put, RangeArgument, RawFloat, Read, Rem, RemAssign, Seek, Shl, ShlAssign, Shr, ShrAssign, Sized, SliceConcatExt, SliceExt, SliceIndex, Stats, Step, StrExt, Sub, SubAssign, Sum, Sync, TDynBenchFn, Terminal, Termination, ToOwned, ToSocketAddrs, ToString, Try, TryFrom, TryInto, UnicodeStr, Unsize, UpperExp, UpperHex, WideInt, Write}
-, morekeywords=[2]{Send}  % additional traits
-%
-, morekeywords=[3]{bool, char, f32, f64, i8, i16, i32, i64, isize, str, u8, u16, u32, u64, unit, usize, i128, u128}  % primitive types
-%
-, morekeywords=[4]{Err, false, None, Ok, Some, true}  % prelude value constructors
-% grep 'pub \(type\|struct\|enum\) [A-Za-z][A-Za-z0-9]*' -r . | sed 's/^.*pub \(type\|struct\|enum\) \([A-Za-z][A-Za-z0-9]*\).*/\2/g' | sort -u | tr '\n' ',' | sed 's/^\(.*\),$/{\1}\n/g' | sed 's/,/, /g'    
-, morekeywords=[3]{AccessError, Adddf3, AddI128, AddoI128, AddoU128, ADDRESS, ADDRESS64, addrinfo, ADDRINFOA, AddrParseError, Addsf3, AddU128, advice, aiocb, Alignment, AllocErr, AnonPipe, Answer, Arc, Args, ArgsInnerDebug, ArgsOs, Argument, Arguments, ArgumentV1, Ashldi3, Ashlti3, Ashrdi3, Ashrti3, AssertParamIsClone, AssertParamIsCopy, AssertParamIsEq, AssertUnwindSafe, AtomicBool, AtomicPtr, Attr, auxtype, auxv, BackPlace, BacktraceContext, Barrier, BarrierWaitResult, Bencher, BenchMode, BenchSamples, BinaryHeap, BinaryHeapPlace, blkcnt, blkcnt64, blksize, BOOL, boolean, BOOLEAN, BoolTrie, BorrowError, BorrowMutError, Bound, Box, bpf, BTreeMap, BTreeSet, Bucket, BucketState, Buf, BufReader, BufWriter, Builder, BuildHasherDefault, BY, BYTE, Bytes, CannotReallocInPlace, cc, Cell, Chain, CHAR, CharIndices, CharPredicateSearcher, Chars, CharSearcher, CharsError, CharSliceSearcher, CharTryFromError, Child, ChildPipes, ChildStderr, ChildStdin, ChildStdio, ChildStdout, Chunks, ChunksMut, ciovec, clock, clockid, Cloned, cmsgcred, cmsghdr, CodePoint, Color, ColorConfig, Command, CommandEnv, Component, Components, CONDITION, condvar, Condvar, CONSOLE, CONTEXT, Count, Cow, cpu, CRITICAL, CStr, CString, CStringArray, Cursor, Cycle, CycleIter, daddr, DebugList, DebugMap, DebugSet, DebugStruct, DebugTuple, Decimal, Decoded, DecodeUtf16, DecodeUtf16Error, DecodeUtf8, DefaultEnvKey, DefaultHasher, dev, device, Difference, Digit32, DIR, DirBuilder, dircookie, dirent, dirent64, DirEntry, Discriminant, DISPATCHER, Display, Divdf3, Divdi3, Divmoddi4, Divmodsi4, Divsf3, Divsi3, Divti3, dl, Dl, Dlmalloc, Dns, DnsAnswer, DnsQuery, dqblk, Drain, DrainFilter, Dtor, Duration, DwarfReader, DWORD, DWORDLONG, DynamicLibrary, Edge, EHAction, EHContext, Elf32, Elf64, Empty, EmptyBucket, EncodeUtf16, EncodeWide, Entry, EntryPlace, Enumerate, Env, epoll, errno, Error, ErrorKind, EscapeDebug, EscapeDefault, EscapeUnicode, event, Event, eventrwflags, eventtype, ExactChunks, ExactChunksMut, EXCEPTION, Excess, ExchangeHeapSingleton, exit, exitcode, ExitStatus, Failure, fd, fdflags, fdsflags, fdstat, ff, fflags, File, FILE, FileAttr, filedelta, FileDesc, FilePermissions, filesize, filestat, FILETIME, filetype, FileType, Filter, FilterMap, Fixdfdi, Fixdfsi, Fixdfti, Fixsfdi, Fixsfsi, Fixsfti, Fixunsdfdi, Fixunsdfsi, Fixunsdfti, Fixunssfdi, Fixunssfsi, Fixunssfti, Flag, FlatMap, Floatdidf, FLOATING, Floatsidf, Floatsisf, Floattidf, Floattisf, Floatundidf, Floatunsidf, Floatunsisf, Floatuntidf, Floatuntisf, flock, ForceResult, FormatSpec, Formatted, Formatter, Fp, FpCategory, fpos, fpos64, fpreg, fpregset, FPUControlWord, Frame, FromBytesWithNulError, FromUtf16Error, FromUtf8Error, FrontPlace, fsblkcnt, fsfilcnt, fsflags, fsid, fstore, fsword, FullBucket, FullBucketMut, FullDecoded, Fuse, GapThenFull, GeneratorState, gid, glob, glob64, GlobalDlmalloc, greg, group, GROUP, Guard, GUID, Handle, HANDLE, Handler, HashMap, HashSet, Heap, HINSTANCE, HMODULE, hostent, HRESULT, id, idtype, if, ifaddrs, IMAGEHLP, Immut, in, in6, Incoming, Infallible, Initializer, ino, ino64, inode, input, InsertResult, Inspect, Instant, int16, int32, int64, int8, integer, IntermediateBox, Internal, Intersection, intmax, IntoInnerError, IntoIter, IntoStringError, intptr, InvalidSequence, iovec, ip, IpAddr, ipc, Ipv4Addr, ipv6, Ipv6Addr, Ipv6MulticastScope, Iter, IterMut, itimerspec, itimerval, jail, JoinHandle, JoinPathsError, KDHELP64, kevent, kevent64, key, Key, Keys, KV, l4, LARGE, lastlog, launchpad, Layout, Lazy, lconv, Leaf, LeafOrInternal, Lines, LinesAny, LineWriter, linger, linkcount, LinkedList, load, locale, LocalKey, LocalKeyState, Location, lock, LockResult, loff, LONG, lookup, lookupflags, LookupHost, LPBOOL, LPBY, LPBYTE, LPCSTR, LPCVOID, LPCWSTR, LPDWORD, LPFILETIME, LPHANDLE, LPOVERLAPPED, LPPROCESS, LPPROGRESS, LPSECURITY, LPSTARTUPINFO, LPSTR, LPVOID, LPWCH, LPWIN32, LPWSADATA, LPWSAPROTOCOL, LPWSTR, Lshrdi3, Lshrti3, lwpid, M128A, mach, major, Map, mcontext, Metadata, Metric, MetricMap, mflags, minor, mmsghdr, Moddi3, mode, Modsi3, Modti3, MonitorMsg, MOUNT, mprot, mq, mqd, msflags, msghdr, msginfo, msglen, msgqnum, msqid, Muldf3, Mulodi4, Mulosi4, Muloti4, Mulsf3, Multi3, Mut, Mutex, MutexGuard, MyCollection, n16, NamePadding, NativeLibBoilerplate, nfds, nl, nlink, NodeRef, NoneError, NonNull, NonZero, nthreads, NulError, OccupiedEntry, off, off64, oflags, Once, OnceState, OpenOptions, Option, Options, OptRes, Ordering, OsStr, OsString, Output, OVERLAPPED, Owned, Packet, PanicInfo, Param, ParseBoolError, ParseCharError, ParseError, ParseFloatError, ParseIntError, ParseResult, Part, passwd, Path, PathBuf, PCONDITION, PCONSOLE, Peekable, PeekMut, Permissions, PhantomData, pid, Pipes, PlaceBack, PlaceFront, PLARGE, PoisonError, pollfd, PopResult, port, Position, Powidf2, Powisf2, Prefix, PrefixComponent, PrintFormat, proc, Process, PROCESS, processentry, protoent, PSRWLOCK, pthread, ptr, ptrdiff, PVECTORED, Queue, radvisory, RandomState, Range, RangeFrom, RangeFull, RangeInclusive, RangeMut, RangeTo, RangeToInclusive, RawBucket, RawFd, RawHandle, RawPthread, RawSocket, RawTable, RawVec, Rc, ReadDir, Receiver, recv, RecvError, RecvTimeoutError, ReentrantMutex, ReentrantMutexGuard, Ref, RefCell, RefMut, REPARSE, Repeat, Result, Rev, Reverse, riflags, rights, rlim, rlim64, rlimit, rlimit64, roflags, Root, RSplit, RSplitMut, RSplitN, RSplitNMut, RUNTIME, rusage, RwLock, RWLock, RwLockReadGuard, RwLockWriteGuard, sa, SafeHash, Scan, sched, scope, sdflags, SearchResult, SearchStep, SECURITY, SeekFrom, segment, Select, SelectionResult, sem, sembuf, send, Sender, SendError, servent, sf, Shared, shmatt, shmid, ShortReader, ShouldPanic, Shutdown, siflags, sigaction, SigAction, sigevent, sighandler, siginfo, Sign, signal, signalfd, SignalToken, sigset, sigval, Sink, SipHasher, SipHasher13, SipHasher24, size, SIZE, Skip, SkipWhile, Slice, SmallBoolTrie, sockaddr, SOCKADDR, sockcred, Socket, SOCKET, SocketAddr, SocketAddrV4, SocketAddrV6, socklen, speed, Splice, Split, SplitMut, SplitN, SplitNMut, SplitPaths, SplitWhitespace, spwd, SRWLOCK, ssize, stack, STACKFRAME64, StartResult, STARTUPINFO, stat, Stat, stat64, statfs, statfs64, StaticKey, statvfs, StatVfs, statvfs64, Stderr, StderrLock, StderrTerminal, Stdin, StdinLock, Stdio, StdioPipes, Stdout, StdoutLock, StdoutTerminal, StepBy, String, StripPrefixError, StrSearcher, subclockflags, Subdf3, SubI128, SuboI128, SuboU128, subrwflags, subscription, Subsf3, SubU128, Summary, suseconds, SYMBOL, SYMBOLIC, SymmetricDifference, SyncSender, sysinfo, System, SystemTime, SystemTimeError, Take, TakeWhile, tcb, tcflag, TcpListener, TcpStream, TempDir, TermInfo, TerminfoTerminal, termios, termios2, TestDesc, TestDescAndFn, TestEvent, TestFn, TestName, TestOpts, TestResult, Thread, threadattr, threadentry, ThreadId, tid, time, time64, timespec, TimeSpec, timestamp, timeval, timeval32, timezone, tm, tms, ToLowercase, ToUppercase, TraitObject, TryFromIntError, TryFromSliceError, TryIter, TryLockError, TryLockResult, TryRecvError, TrySendError, TypeId, U64x2, ucontext, ucred, Udivdi3, Udivmoddi4, Udivmodsi4, Udivmodti4, Udivsi3, Udivti3, UdpSocket, uid, UINT, uint16, uint32, uint64, uint8, uintmax, uintptr, ulflags, ULONG, ULONGLONG, Umoddi3, Umodsi3, Umodti3, UnicodeVersion, Union, Unique, UnixDatagram, UnixListener, UnixStream, Unpacked, UnsafeCell, UNWIND, UpgradeResult, useconds, user, userdata, USHORT, Utf16Encoder, Utf8Error, Utf8Lossy, Utf8LossyChunk, Utf8LossyChunksIter, utimbuf, utmp, utmpx, utsname, uuid, VacantEntry, Values, ValuesMut, VarError, Variables, Vars, VarsOs, Vec, VecDeque, vm, Void, WaitTimeoutResult, WaitToken, wchar, WCHAR, Weak, whence, WIN32, WinConsole, Windows, WindowsEnvKey, winsize, WORD, Wrapping, wrlen, WSADATA, WSAPROTOCOL, WSAPROTOCOLCHAIN, Wtf8, Wtf8Buf, Wtf8CodePoints, xsw, xucred, Zip, zx}
-%
-, morekeywords=[5]{assert!, assert_eq!, assert_ne!, cfg!, column!, compile_error!, concat!, concat_idents!, debug_assert!, debug_assert_eq!, debug_assert_ne!, env!, eprint!, eprintln!, file!, format!, format_args!, include!, include_bytes!, include_str!, line!, module_path!, option_env!, panic!, print!, println!, select!, stringify!, thread_local!, try!, unimplemented!, unreachable!, vec!, write!, writeln!}  % prelude macros
-}%
-
-\lstdefinestyle{colouredRust}%
-{ basicstyle=\ttfamily%
-, identifierstyle=%
-, commentstyle=\color[gray]{0.4}%
-, stringstyle=\color[rgb]{0, 0, 0.5}%
-, keywordstyle=\bfseries% reserved keywords
-, keywordstyle=[2]\color[rgb]{0.75, 0, 0}% traits
-, keywordstyle=[3]\color[rgb]{0, 0.5, 0}% primitive types
-, keywordstyle=[4]\color[rgb]{0, 0.5, 0}% type and value constructors
-, keywordstyle=[5]\color[rgb]{0, 0, 0.75}% macros
-, columns=spaceflexible%
-, keepspaces=true%
-, showspaces=false%
-, showtabs=false%
-, showstringspaces=true%
-}%
-
-\lstdefinestyle{boxed}{
-  style=colouredRust%
-, numbers=left%
-, firstnumber=auto%
-, numberblanklines=true%
-, frame=trbL%
-, numberstyle=\tiny%
-, frame=leftline%
-, numbersep=7pt%
-, framesep=5pt%
-, framerule=10pt%
-, xleftmargin=15pt%
-, backgroundcolor=\color[gray]{0.97}%
-, rulecolor=\color[gray]{0.90}%
-}
-\lstdefinestyle{c}{language=C}
-\lstdefinestyle{cpp}{language=C++}
-\lstdefinestyle{Java}{language=Java}
-\lstdefinestyle{JavaScript}{language=JavaScript}
-\lstdefinestyle{TypeScript}{language=JavaScript}
-\lstdefinestyle{Python}{language=Python}
-\lstdefinestyle{CSharp}{language=[Sharp]C}
-\lstdefinestyle{PHP}{language=PHP}
-\lstdefinestyle{Go}{language=Go}
-\lstdefinestyle{Kotlin}{language=Kotlin}
-\lstdefinestyle{Rust}{language=Rust}
-
+\input{lstsetup.tex}
 % ======== Custom package setup end ========
 
 \autor{Jacek Olczyk}{385896}
@@ -199,7 +66,7 @@ impact on existing Haskell code and minimal syntactic intrusion when the propose
 is enabled. The use of default values happens only when using the braced record construction syntax 
 already present in Haskell. The syntax for defining default field values follows established
 conventions from other programming languages in which this feature is present. The addition
-of this feature will noticably improve the language's usability in large codebases.
+of this feature will noticeably improve the language's usability in large codebases.
 \end{abstract}
 
 \tableofcontents
@@ -230,8 +97,11 @@ before ending on the conclusion \ref*{ch:concl};
 
 \chapter{Background}\label{ch:bg}
 \section{Overview of record syntax and field defaulting}
-A major drawback algebraic data types usually face when contrasted with data types commonly found in imperative languages (like \code{struct} in C) is their unwieldiness when it comes to data structures containing many fields.
-While most imperative and virtually all object-oriented languages feature a prominent and easy-to-use syntax for both naming and accessing individual fields of their data structures, the default for most functional languages has been to prefer data structures with unnamed fields.
+A major drawback algebraic data types usually suffer from when contrasted with data types commonly found in imperative languages 
+(like \code{struct} in C) is their unwieldiness when it comes to data structures containing many fields.
+While most imperative and virtually all object-oriented languages feature a prominent and easy-to-use syntax 
+for both naming and accessing individual fields of their data structures, the default for most functional languages
+has been to prefer data structures with unnamed fields.
 However, as projects grow larger and larger, having only unnamed data structure fields becomes increasingly cumbersome and error-prone.
 Thus, most functional languages provide an alternate record syntax for defining their data types. 
 
@@ -309,7 +179,7 @@ The earliest examples of programming language syntax for record types date back 
 Popular contemporary languages like Algol 68 \cite{van2012revised} and FORTRAN 77 \cite{fortran77} adopted their own syntax soon thereafter.
 They did not provide any facilities for providing default values for structure fields.
 Early object-oriented languages either used constructors for this purpose (Smalltalk \cite{smalltalk80}), or nothing at all (Simula \cite{Simula67}).
-The same followed for most of languages developed in the 1970s and 80s: languages with either no default initialization of record types, like C and Pascal,
+The same followed for most of the languages developed in the 1970s and 80s: languages with either no default initialization of record types, like C and Pascal,
 or default initialization via constructor functions, like in C++.
 A notable exception is Common Lisp, which being released in 1985 can be counted 
 as one of the earliest examples of records with dedicated syntax for default field values \cite{CommonLisp}.
@@ -554,7 +424,7 @@ Since Erlang/OTP 19, fields without a default value must be given a value upon c
 \subsection{Prior attempts at solving the issue}\label{ss:prior}
 This issue has been heretofore partially mitigated thanks to another common feature of record syntax in programming languages: the record update syntax. 
 It allows for the construction of a record in such a way that any unspecified fields are copied over from an already existing record. 
-If the author of a type then provides their users with a globally visible ''default'' object with all its fields already filled out, 
+If the author of a type then provides their users with a globally visible 'default' object with all its fields already filled out, 
 a user of the type can utilize the record update syntax to mimic the functionality offered by default field values.
 
 However, this approach is not without its drawbacks.
@@ -571,8 +441,8 @@ this is an area in which clear improvement can be made.
 In Haskell, as well as other languages, it is also possible to create a record without specifying all of its fields.
 This way it is not necessary to provide the troublesome fields with any value, relying on the user to add it later.
 However, in that case, the fields are still automatically filled with bottom values.
-To make matters worse, such a creation creates compile-time warnings (with \code{-Wmissing-fields} enabled) when defining the default record, 
-and no compile-time warnings when some of the bottoms are not replaced in a record update.
+To make matters worse, such creation creates compile-time warnings (with \code{-Wmissing-fields} enabled) when defining the default record, 
+and no compile-time warnings when some error values are not replaced in a record update.
 Because of that, this solution is even worse than the previous one.
 
 This issue is completely solved with the advent of default field value syntax: all fields that can't be easily defaulted, 
@@ -600,8 +470,8 @@ before codebases written in that language are able to intercommunicate via IDLs.
 \newcommand{\user}{\textit{user}}
 \newcommand{\infra}{\textit{infra}}
 A major potential real-world use case is helping with code migrations.
-As an example, consider a system with two codebases, \user{} and \infra{}. 
-\infra{} provides type definitions for configs, like this simplified example:\\
+As an example, consider a system with two codebases, \user{} and \infra{}.
+The \infra{} code provides type definitions for configs, like this simplified example:\\
 \begin{minipage}{\linewidth}
 \begin{lstlisting}
   data Config 
@@ -623,7 +493,7 @@ To ensure runtime safety of the system, constructing this value is protected via
 In their presence, omitting a field creates a compile-time error, making sure that every field value is correctly in place.
 Since it is easy for a programmer to forget about a field, especially when there are many of them, this check
 measurably increases correctness of the system. 
-However, when there is a need to add an additional field, problems with that approach arise. 
+However, when there is a need to add a new field, problems with that approach arise. 
 Even if the system was limited to just one codebase, a sufficiently large system cannot be easily migrated to use a new value
 in all the occurrences of the construction. With multiple codebases, the process complicates even more. Here's a step-by-step
 example of how that could look like, if one wanted to add a field \code{owner} of type \code{String}:
@@ -671,7 +541,7 @@ defaultConfig
     \end{lstlisting}
     \end{minipage}
   \item Yet again, a release is needed.
-  \item Now, all of the \user{} code can revert to using constructors, as soon as the relevant code is adapted to make use of the 
+  \item Now, all \user{} code can revert to using constructors, as soon as the relevant code is adapted to make use of the 
   new field. \\
 \begin{minipage}{\linewidth}
 \begin{lstlisting}
@@ -766,9 +636,9 @@ Any type written in extension field or an extension constructor definition is ac
 which when parameterized by the phase, allows for a different \code{type instance} for each phase.
 \section{Compilation phases}
 \subsection{Parsing}\label{ghc:parsing}
-GHC does parsing of source code through a monolithic Happy grammar \cite{Happy}, although this wasn't initially the case \cite{Jones1993TheGH}.
+GHC implements parsing of source code through a monolithic Happy grammar \cite{Happy}, although this wasn't initially the case \cite{Jones1993TheGH}.
 The data structures emitted by the parser are often ambiguous as to which production was actually used to parse a given part of the source code.
-This is a result of a policy of ''overparse, then filter out the bad cases'' \cite{ParserWiki}, 
+This is a result of a policy of 'overparse, then filter out the bad cases' \cite{ParserWiki}, 
 which is also used by this implementation, see section \ref{impl:parser}.
 For example, in certain contexts both patterns and expressions are valid, so knowing which grammar derivation to use would require infinite lookahead.
 This is solved through a validation monad which allows parsing contexts to specify which constructs are possible, failing the parse on the rest.
@@ -787,20 +657,21 @@ The typechecker uses the \code{Type} type, which is used to type Core, instead o
 This is because the typechecking process is quite complicated, and thus requires a data structure that is easy to manipulate.
 
 \subsection{Desugaring}
-The desugarer transforms the Haskell AST (with the \code{GhcTc} phase indicator) into an explicitly type variant of System FC called Core \cite{CoreWiki}.
+The desugarer transforms the Haskell AST (with the \code{GhcTc} phase indicator) into an explicitly typed variant of System FC called Core \cite{CoreWiki}.
 The Core language AST consists of only 10 constructors for its expressions \cite{GHCCoreDef},
 and great care is taken to not modify this language when not necessary, 
 so any changes that are little more than syntactic sugar should be implemented as part of the desugarer.
 
 \chapter{Syntax}\label{ch:syn}
 Among a wide variety of languages supporting providing default values to fields of data structures, there has been a virtually unanimous agreement on the syntax used for providing the default values.
-Any language that supports this feature on the compiler level seems to agree on the base syntax being \code{field\_name = value}, with minor variations depending on the given language's syntax for field type annotations.
+Any language that supports this feature on the compiler level seems to agree on the base syntax being \code{field_name = value}, 
+with minor variations depending on the given language's syntax for field type annotations.
 Thus, declaring an integer field with default value of 1 in C++, Java, and many others, looks like this: \code{int x = 1;}.
 As another example, the same is accomplished in TypeScript with the syntax \code{x: number = 1,}. 
 Many other examples presented in \ref{subs:modernexamples} also follow this pattern.
 
 \section{Syntax for declaring a default field value}
-With that in mind, we needed to accommodate the \code{field\_name = value} syntax to existing syntax for Haskell records.
+With that in mind, we needed to accommodate the \code{field_name = value} syntax to existing syntax for Haskell records.
 A single field in a Haskell record currently looks like the following:
 \begin{lstlisting}[escapeinside={(*}{*)}]
   fieldName :: FieldType
@@ -821,7 +692,7 @@ Considering the above examples, a few alternative approaches for the default val
 
 In total four variants, and the one chosen here is the "type after value" approach without omitting the type signature.
 \subsection{Order of syntactic components}
-To decide between ''type after value'' and ''value after type'', we looked at language constructs already prevalent in existing Haskell code.
+To decide between 'type after value' and 'value after type', we looked at language constructs already prevalent in existing Haskell code.
 
 %While it is possible for a top-level Haskell binding to be declared both of these ways, the usual preference for Haskell developers is 
 A regular top-level Haskell binding with a type annotation can have multiple forms:
@@ -861,7 +732,7 @@ As providing type annotations is a good practice in almost all use cases and vir
 for all their record fields, this potential loss in functionality seems to have negligible cost.
 
 \subsection{Multiple names in one line}
-Regular Haskelly syntax for field declarations allows for multiple fields of the same type to be written on one line:
+Regular Haskell syntax for field declarations allows for multiple fields of the same type to be written on one line:
 \begin{lstlisting}
   data NewRecordType 
     = NewRecordTypeCtor { 
@@ -984,9 +855,9 @@ The example record created by the following code is equal to \code{RecordCtor3 \
 
 \end{lstlisting}
 
-\subsection{The \code{-Wmissing-fields} flag}
-Furthermore, this change has a side-effect on the behavior of programs with the compiler flag \code{-Wmissing-fields} on.
-With that flag, any record construction expression produces a compile-time warning when any field initalization is omitted.
+\subsection{The -Wmissing-fields flag}
+Furthermore, this change has a side effect on the behavior of programs with the compiler flag \code{-Wmissing-fields} on.
+With that flag, any record construction expression produces a compile-time warning when any field initialization is omitted.
 Given that any field for which a default value has been provided cannot be missing, this means that no warning will be 
 generated in these cases.
 While just opting in to the extension does not change the behavior by itself, providing a default value for a field
@@ -1012,12 +883,11 @@ Thanks to that we can be certain that the default values will behave as expected
 
 This operational, rather than denotational semantic aspect of program behavior is implemented through
 storing default values as global bindings.
-This way, it implicitly performs the optimization
-described in \cite{partain1996let-floating} as the full laziness transformation. 
+That way, it implicitly performs the optimization described in \cite{partain1996let-floating} as the full laziness transformation. 
 This naturally is expected to result in the same consequences and considerations as outlined therein:
 \begin{itemize}
   \item Programs can be made faster by not repeating work (to compute the value) and allocations (to store the value).
-  \item When the default value ''is already a value, or reduces to a value with a negligible amount of work'', the only potential gain is in allocations.
+  \item When the default value 'is already a value, or reduces to a value with a negligible amount of work', the only potential gain is in allocations.
   \item The values can potentially cause a space leak 
     (e.g. when a default value is an infinite list and more elements get evaluated than will be needed in the future).
   \item They are harder to garbage-collect.
@@ -1032,7 +902,7 @@ so the best approach is to minimize it.
 Furthermore, it's common for default values to require little to no computation. 
 For example, a major use case of default values is placeholders meant to be filled out later. 
 Often programmers choose the simplest possible value for a given type as the default, e.g. \code{0\ ::\ Int}.
-With this in mind, it seems unlikely for programmers to provide default values that could cause a noticable space leak, and most of the time one might
+With this in mind, it seems unlikely for programmers to provide default values that could cause a noticeable space leak, and most of the time one might
 reasonably expect a bunch of allocations to be omitted.
 Unfortunately, there is no way to verify these assumptions without developing an alternative implementation that doesn't make the default values global.
 
@@ -1154,13 +1024,12 @@ typedexp :: { ECP }
 This allows us to parse \code{var '=' typedexp}, which forces a type signature and guarantees no conflicts.
 The aforementioned production is introduced as a new node, \code{varini}, for clarity:
 \begin{lstlisting}
-varIni :: {(LocatedN RdrName, LHsExpr GhcPs, LHsType GhcPs)}
+varini :: {(LocatedN RdrName, LHsExpr GhcPs, LHsType GhcPs)}
   : var '=' typedexp
     {% runPV $ (unECP $3 :: PV (LHsExpr GhcPs)) >>=
                 \ e@(L _ (ExprWithTySig _ _ (HsWC _ (L _ t)))) -> 
                     return ($1, e, sig_body t) }
 \end{lstlisting}
-
 It is used in \code{sig_vars} definitions like this:
 \begin{lstlisting}
 fielddecl :: { LConDeclField GhcPs }
@@ -1181,29 +1050,30 @@ annotating the result with type \code{PV (LHsExpr GhcPs)} to mark the parsing co
 \section{Renamer}\label{impl:renamer}
 \subsection{Preprocessing}
 Before we start the renaming process, we want to make sure we are making as much use of existing GHC piping as possible.
-Thus, at the beginning of the renamer, we extract all of the default values for fields into separate bindings.
+Thus, at the beginning of the renamer, we extract all default values for fields into separate bindings.
 In the type declarations, the user-provided expressions are then replaced (inside the \code{ConDeclField} structures) with simple variable expressions.
 The user-provided expressions are given freshly generated names and grouped together with other value declarations for the module.
-All the declarations are fed to the renamer in this way, and there the next phase of renaming proceeds.
+All the declarations are fed to the renamer in this way, and there to the next phase of renaming proceeds.
 \subsection{Conversion}
-Early in the renaming process, the abstract syntax for type declarations is parsed into more convienient data structures.
-It is here that record selector functions are created and their names are placed inside the \code{FieldLabel} objects created alongside them.
+Early in the renaming process, the abstract syntax for type declarations is parsed into more convenient data structures.
+It is here that record selector functions are created, and their names are placed inside the \code{FieldLabel} objects created alongside them.
 This means that it's the perfect place for inserting the names of the default expressions into the \code{FieldLabel}s.
 To do that, before checking individual constructors or fields, a mapping is constructed of all field names from a given type declaration to the names of their default expressions.
 \subsection{Missing fields detection}
 The fields that have been given default values should be excluded from both the list of missing strict fields 
-(which produce an error when not specified) and the list of missing nonstrict fields (which only produces a warning).
+(which produce an error when not specified) and the list of missing non-strict fields (which only produces a warning).
 When detecting if fields are missing, the algorithm compares the available \code{FieldLabel}s for the given constructor with the occurrences provided in a given expression.
 Thus, to exclude defaulted fields, it is sufficient to filter out the \code{FieldLabel}s that have their \code{flIniExpr} field set to a \code{Just} value.
 
 \section{Desugarer}
 During desugaring, we need to fill any unspecified record fields with the variable name corresponding to the appropriate default expression.
 Normally, the desugarer fills all missing fields with error values.
-Given that the desugarer has access to the \code{FieldLabel}s of the arguments being desugared, we can check if they contain the default expression and desugar the field to contain the variable name instead of an error.
+Given that the desugarer has access to the \code{FieldLabel}s of the arguments being desugared, we can check if they contain the default expression and 
+desugar the field to contain the variable name instead of an error.
 
 \chapter{Conclusion}\label{ch:concl}
 This work proposed a custom syntax for default record fields in Haskell, detailed a proof-of-concept implementation and discussed the design choices
-and tradeoffs behind the syntax and semantics of the implementation.
+and trade-offs behind the syntax and semantics of the implementation.
 
 From this work it is clear that an implementation of default record field values in Haskell is possible, usable, useful and hopefully soon implemented
 into the mainline GHC. The syntax is clear and intuitive and the behavior of programs that use it is predictable and efficient.
