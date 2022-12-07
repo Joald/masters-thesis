@@ -926,7 +926,7 @@ Recall the (slightly renamed) example type from the previous chapter:
      }
 \end{lstlisting}
   
-In order to utilize the mechanism inserting default values, usage of the record construction syntax is necessary:
+In order to utilize the mechanism of inserting default values, usage of the record construction syntax is necessary:
 
 \begin{lstlisting}[escapeinside={(*}{*)}]
   exampleRecord :: Record1
@@ -937,9 +937,13 @@ In order to utilize the mechanism inserting default values, usage of the record 
     }
 \end{lstlisting}
 
-Notably, this is the only possible way of constructing a record with a non-$\bot$ default value.
-Below we give non-examples of constructions that do not change their semantics with this change (but could reasonably be expected to).
-In the first example, the field is initialized with the $\bot$ value, both in the current version of Haskell and with the changes described in this thesis applied to GHC.
+Heretofore, omitting a field when constructing a record resulted in 
+that field containing a lazy error value, which terminates the program on evaluation.
+The above example is the only possible way of constructing a record with a non-error default value.
+Below we give non-examples of constructions that do not change their semantics with this change 
+(but could reasonably be expected to).
+In the first example, the field is initialized with an error value, 
+both in the current version of Haskell and with the changes described in this thesis applied to GHC.
 
 \begin{lstlisting}[escapeinside={(*}{*)}]
   data Record2
@@ -952,13 +956,13 @@ In the first example, the field is initialized with the $\bot$ value, both in th
   exampleRecord 
     = RecordCtor2 
     { field1 = 12
-    -- field2 is initialized with the (*$\bot$*) value, raising an error when evaluated
+    -- field2 is initialized with an error value, raising an error when evaluated
     }
 
 \end{lstlisting}
 
-In the second example, we note that record update is not affected by these changes. 
-Every unspecified field in the record update will be copied directly from the old record, even if its value is $\bot$.
+In the next example, we note that record update is not affected by these changes. 
+Every unspecified field in the record update will be copied directly from the old record, even if its value is an error value.
 The example record created by the following code is equal to \code{RecordCtor3 \{ field1 = 5, field2 = 4 \}}.
 
 \begin{lstlisting}[escapeinside={(*}{*)}]
@@ -980,20 +984,58 @@ The example record created by the following code is equal to \code{RecordCtor3 \
 
 \end{lstlisting}
 
+\subsection{The \code{-Wmissing-fields} flag}
+Furthermore, this change has a side-effect on the behavior of programs with the compiler flag \code{-Wmissing-fields} on.
+With that flag, any record construction expression produces a compile-time warning when any field initalization is omitted.
+Given that any field for which a default value has been provided cannot be missing, this means that no warning will be 
+generated in these cases.
+While just opting in to the extension does not change the behavior by itself, providing a default value for a field
+has the effect of silencing any warnings that could have previously been reported by the compilers for constructors 
+of a given type.
+
 \section{A more formal statement}
 For precision, we offer a reasonably rigorous semantic description of field defaulting:
 \newtheorem{remark}{Description}
 \begin{remark}
   \normalfont
   Let $T$ be a type with a record constructor $T'$ containing a field $f$ for which a default expression $e$ has been provided.
-  Then, if while calling the constructor $T'$ via the record construction syntax, field $f$ is not given any value, during evaluation the construction happens \textit{as-if} field $f$ had been specified and given the value $e$.
+  Then, if while calling the constructor $T'$ via the record construction syntax, field $f$ is not given any value, 
+  during evaluation the construction happens \textit{as-if} field $f$ had been specified and given the value $e$.
+  The presence of \code{-Wmissing-fields} flag does not result in any warnings for any usage of $f$.
 \end{remark}
 
-\section{Notable observations}
-Given Haskell's usual semantics as a pure and lazy language, the defaulting expression is only evaluated at most once, if it's needed (more details in \ref{sec:efficiency}).
+\section{Operational semantics}
+Given Haskell's usual semantics as a pure and lazy language, the defaulting expression is only evaluated at most once, if it's needed.
 This allows for arbitrarily complex expressions without risking unnecessarily long runtime of the program. 
 Even if the defaulted field's type is a computation inside the \code{IO} monad (and thus can be considered to have side effects), the evaluation of the expression only produces instructions for the runtime system without actually executing them.
 Thanks to that we can be certain that the default values will behave as expected.
+
+This operational, rather than denotational semantic aspect of program behavior is implemented through
+storing default values as global bindings.
+This way, it implicitly performs the optimization
+described in \cite{partain1996let-floating} as the full laziness transformation. 
+This naturally is expected to result in the same consequences and considerations as outlined therein:
+\begin{itemize}
+  \item Programs can be made faster by not repeating work (to compute the value) and allocations (to store the value).
+  \item When the default value ''is already a value, or reduces to a value with a negligible amount of work'', the only potential gain is in allocations.
+  \item The values can potentially cause a space leak 
+    (e.g. when a default value is an infinite list and more elements get evaluated than will be needed in the future).
+  \item They are harder to garbage-collect.
+\end{itemize}
+How do these apply to the typical use case of default field values?
+In a reasonable program, one would expect default values to be more likely to need to be reused.
+Thus, making sure that their value isn't recomputed on each evaluation of a constructor that does not contain the field seems like a good approach.
+It also follows the principle of least confusion \cite{saltzer2009principles}: 
+it's not immediately obvious to a user writing a constructor with a defaulted field how much work will be performed on construction,
+so the best approach is to minimize it.
+
+Furthermore, it's common for default values to require little to no computation. 
+For example, a major use case of default values is placeholders meant to be filled out later. 
+Often programmers choose the simplest possible value for a given type as the default, e.g. \code{0\ ::\ Int}.
+With this in mind, it seems unlikely for programmers to provide default values that could cause a noticable space leak, and most of the time one might
+reasonably expect a bunch of allocations to be omitted.
+Unfortunately, there is no way to verify these assumptions without developing an alternative implementation that doesn't make the default values global.
+
 
 \chapter{Implementation}\label{ch:impl}
 
@@ -1018,14 +1060,73 @@ The necessary changes made to the GHC code can be broken down into X parts:
 \section{Changes to datatypes} 
 
 For the initial prototype we tried to keep the changes to existing internal GHC data structures to a minimum.
+\subsection*{ConDeclField}
+Taken from \cite{GHCConDeclFieldDef}.
+\begin{lstlisting}
+-- | Constructor Declaration Field
+data ConDeclField pass  -- Record fields have Haddock docs on them
+  = ConDeclField { cd_fld_ext  :: XConDeclField pass,
+                   cd_fld_names :: [LFieldOcc pass],
+                                   -- ^ See Note [ConDeclField passs]
+                   cd_fld_type :: LBangType pass,
+                   cd_fld_doc  :: Maybe LHsDocString }
+\end{lstlisting}
 First necessary change was to the \code{ConDeclField} type, which represents a single field of a record constructor.
-We modify it by adding a field called \code{cd_fld_ini} of type \code{Maybe (LHsExpr pass)}. 
+We modify it by adding a field called \code{cd_fld_ini} of type \code{Maybe (LHsExpr pass)}:
+\begin{lstlisting}
+-- | Constructor Declaration Field
+data ConDeclField pass  -- Record fields have Haddock docs on them
+  = ConDeclField { cd_fld_ext  :: XConDeclField pass,
+                    cd_fld_names :: [LFieldOcc pass],
+                                    -- ^ See Note [ConDeclField passs]
+                    cd_fld_type :: LBangType pass,
+                    cd_fld_doc  :: Maybe (LHsDoc pass),
+                    cd_fld_ini  :: Maybe (LHsExpr pass) }
+\end{lstlisting}
+
 The \code{L} prefix in \code{LHsExpr} means that the expression contains information about its location in the source file.
 The \code{pass} parameter signifies the current phase of the compilation (using the Trees that grow technique described in \ref{ghc:ttg} and in detail in \cite{Najd2017TreesTG}).
 This modification allows us to pass the defaulting expression from the parser to the renamer.
+\subsection*{FieldLabel}
+Taken from \cite{GHCFieldLabelDef}.
+\begin{lstlisting}
+-- | Fields in an algebraic record type; see Note [FieldLabel].
+data FieldLabel = FieldLabel {
+      flLabel :: FieldLabelString,
+      -- ^ User-visible label of the field
+      flHasDuplicateRecordFields :: DuplicateRecordFields,
+      -- ^ Was @DuplicateRecordFields@ on in the defining module for this datatype?
+      flHasFieldSelector :: FieldSelectors,
+      -- ^ Was @FieldSelectors@ enabled in the defining module for this datatype?
+      -- See Note [NoFieldSelectors] in GHC.Rename.Env
+      flSelector :: Name
+      -- ^ Record selector function
+    }
+  deriving (Data, Eq)  
+\end{lstlisting}
 
-The renamer then moves information about types and their constructors from the data structures that represent abstract syntax to internal structures that are easier to work with.
+The renamer moves information about types and their constructors from the data structures that represent abstract syntax to internal structures that are easier to work with.
 There, information about record fields is stored inside the \code{FieldLabel} type, to which we added a new field, \code{flIniExpr :: Maybe Name}.
+
+\begin{lstlisting}
+-- | Fields in an algebraic record type; see Note [FieldLabel].
+data FieldLabel = FieldLabel {
+      flLabel :: FieldLabelString,
+      -- ^ User-visible label of the field
+      flHasDuplicateRecordFields :: DuplicateRecordFields,
+      -- ^ Was @DuplicateRecordFields@ on in the defining module for this datatype?
+      flHasFieldSelector :: FieldSelectors,
+      -- ^ Was @FieldSelectors@ enabled in the defining module for this datatype?
+      -- See Note [NoFieldSelectors] in GHC.Rename.Env
+      flSelector :: Name,
+      -- ^ Record selector function
+      flIniExpr :: Maybe Name
+      -- ^ Initializing expression
+    }
+  deriving (Data, Eq)
+
+\end{lstlisting}
+
 The \code{Name} refers to the generated name of the binding generated for the expression.
 
 \section{Parser}\label{impl:parser}
@@ -1037,16 +1138,47 @@ The names are a list to allow for declaring multiple fields with the same type i
 We want to modify it to allow for \code{ = expr} between the name of the field and the type.
 One obvious solution would be to add another production producing \code{var '=' exp '::' ctype} (as we only want to allow a single name to be defaulted on one line).
 This unfortunately produces a reduce/reduce conflict, as \code{exp} can already contain a type signature. 
-We solve this conflict by extracting the production for an expression with a type signature to a separate node, \code{typedexp}.
+We solve this conflict by extracting the production for an expression with a type signature to a separate node, \code{typedexp}:
+
+\begin{lstlisting}
+typedexp :: { ECP }
+        : infixexp '::' ctype
+              { ECP $
+                  unECP $1 >>= \ $1 ->
+                  rejectPragmaPV $1 >>
+                  mkHsTySigPV (noAnnSrcSpan $ comb2Al $1 (reLoc $>)) $1 $3
+                        [(mu AnnDcolon $2)] }
+
+\end{lstlisting}
+
 This allows us to parse \code{var '=' typedexp}, which forces a type signature and guarantees no conflicts.
-The aforementioned production is introduced as a new node, \code{varini}, for clarity.
+The aforementioned production is introduced as a new node, \code{varini}, for clarity:
+\begin{lstlisting}
+varIni :: {(LocatedN RdrName, LHsExpr GhcPs, LHsType GhcPs)}
+  : var '=' typedexp
+    {% runPV $ (unECP $3 :: PV (LHsExpr GhcPs)) >>=
+                \ e@(L _ (ExprWithTySig _ _ (HsWC _ (L _ t)))) -> 
+                    return ($1, e, sig_body t) }
+\end{lstlisting}
+
+It is used in \code{sig_vars} definitions like this:
+\begin{lstlisting}
+fielddecl :: { LConDeclField GhcPs }
+  -- A list because of  f,g :: Int
+  : sig_vars '::' ctype {- code for the existing prodution -}
+  | varIni
+    {% case $1 of
+        (ln@(L l n), expr, t) -> acsA (\cs -> L (locA l) 
+                (ConDeclField (EpAnn (glNR ln) [] cs)
+                [L (l2l l) $ FieldOcc noExtField ln] t Nothing (Just expr)))}
+\end{lstlisting}
 
 There is, however, another issue that needs resolving: the \code{exp} production, and by extension also \code{typedexp} 
 production both return a value of type \code{ECP} instead of \code{HsExpr}. This is due to ambiguity concerns 
 mentioned in section \ref*{ghc:parsing}, so the \code{unECP} function must be used, 
 annotating the result with type \code{PV (LHsExpr GhcPs)} to mark the parsing context as requiring an expression.
 
-\section{Renamer}
+\section{Renamer}\label{impl:renamer}
 \subsection{Preprocessing}
 Before we start the renaming process, we want to make sure we are making as much use of existing GHC piping as possible.
 Thus, at the beginning of the renamer, we extract all of the default values for fields into separate bindings.
@@ -1059,40 +1191,15 @@ It is here that record selector functions are created and their names are placed
 This means that it's the perfect place for inserting the names of the default expressions into the \code{FieldLabel}s.
 To do that, before checking individual constructors or fields, a mapping is constructed of all field names from a given type declaration to the names of their default expressions.
 \subsection{Missing fields detection}
-The fields that have been given default values should be excluded from both the list of missing strict fields (which produces an error when nonempty) and the list of missin nonstrict fields (which only produces a warning).
+The fields that have been given default values should be excluded from both the list of missing strict fields 
+(which produce an error when not specified) and the list of missing nonstrict fields (which only produces a warning).
 When detecting if fields are missing, the algorithm compares the available \code{FieldLabel}s for the given constructor with the occurrences provided in a given expression.
 Thus, to exclude defaulted fields, it is sufficient to filter out the \code{FieldLabel}s that have their \code{flIniExpr} field set to a \code{Just} value.
 
 \section{Desugarer}
 During desugaring, we need to fill any unspecified record fields with the variable name corresponding to the appropriate default expression.
-Normally, the desugarer fills all missing fields with error ($\bot$) values.
+Normally, the desugarer fills all missing fields with error values.
 Given that the desugarer has access to the \code{FieldLabel}s of the arguments being desugared, we can check if they contain the default expression and desugar the field to contain the variable name instead of an error.
-
-\section{Notes on global bindings}
-\label{sec:efficiency}
-A notable side effect of the decision to implement default values as global bindings is that it implicitly performs the optimization
-described in \cite{partain1996let-floating} as the full laziness transformation. 
-This naturally is expected to result in the same consequences and considerations as outlined therein:
-\begin{itemize}
-  \item Programs can be made faster by not repeating work (to compute the value) and allocations (to store the value).
-  \item When the default value ''is already a value, or reduces to a value with a negligible amount of work'', the only potential gain is in allocations.
-  \item The values can potentially cause a space leak 
-    (e.g. when a default value is an infinite list and more elements get evaluated than will be needed in the future)
-  \item They are harder to garbage-collect
-\end{itemize}
-How do these apply to the typical use case of default field values?
-In a reasonable program, one would expect default values to be more likely to need to be reused.
-Thus, making sure that their value isn't recomputed on each evaluation of a constructor that does not contain the field seems like a good approach.
-It also follows the principle of least confusion \cite{saltzer2009principles}: 
-it's not immediately obvious to a user writing a constructor with a defaulted field how much work will be performed on construction,
-so the best approach is to minimize it.
-
-Furthermore, it's common for default values to require little to no computation. 
-For example, a major use case of default values is placeholders meant to be filled out later. 
-Often programmers choose the simplest possible value for a given type as the default, e.g. \code{0\ ::\ Int}.
-With this in mind, it seems unlikely for programmers to provide default values that could cause a noticable space leak, and most of the time one might
-reasonably expect a bunch of allocations to be omitted.
-Unfortunately, there is no way to verify these assumptions without developing an alternative implementation that doesn't make the default values global.
 
 \chapter{Conclusion}\label{ch:concl}
 This work proposed a custom syntax for default record fields in Haskell, detailed a proof-of-concept implementation and discussed the design choices
@@ -1101,11 +1208,23 @@ and tradeoffs behind the syntax and semantics of the implementation.
 From this work it is clear that an implementation of default record field values in Haskell is possible, usable, useful and hopefully soon implemented
 into the mainline GHC. The syntax is clear and intuitive and the behavior of programs that use it is predictable and efficient.
 Programs using the extension are simpler, more expressive and have the potential to be faster than ones written without the extension.
+Being able to guarantee that a value is always present makes systems built with this feature more reliable and less error-prone.
+Usage of the feature will also be helpful in workflows related to maintenance of larger codebases.
 
-The next step is to submit a proposal for the syntax to be accepted as a language extension in the GHC compiler, to bring this feature to the widest possible audience.
-Further discussion with the GHC maintainers will be required to finalize the design choices and implementation details, and this work will serve
-as a good starting point for that discussion.
+The next step for adoption of the feature is to submit a proposal for the syntax to be accepted 
+as a language extension in the GHC compiler, to bring this feature to the widest possible audience.
+Further discussion with the GHC maintainers will be required to finalize the design choices and implementation details, 
+and this work is bound to serve as a good starting point for that discussion.
 
+In conclusion, this proof-of-concept implementation of default values for record fields in Haskell
+demonstrates the feasibility and potential benefits of this feature. 
+By allowing users to specify default values for record fields, 
+the implementation reduces the amount of boilerplate code that is 
+required and improves the readability and maintainability of Haskell programs.
+Additionally, the implementation is consistent with the existing design of Haskell language constructs, 
+and it can be integrated seamlessly into the existing Haskell codebases. 
+Overall, this implementation of default values for record fields in Haskell 
+is a practical approach that could significantly improve the usability and expressiveness of the language.
 
 \appendix
 
