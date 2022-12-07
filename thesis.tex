@@ -11,6 +11,7 @@
     linkcolor=blue,
     filecolor=magenta,      
     urlcolor=RoyalBlue,
+    citecolor=black,
     pdfpagemode=FullScreen,
 }
 \input{lstsetup.tex}
@@ -23,10 +24,10 @@
 
 \kierunek{Computer Science}
 
-\opiekun{PhD. Josef Svenningsson\\
+\opiekun{Josef Svenningsson, PhD\\
   Meta Platforms, Inc.\\
 }
-\opiekunuw{PhD. Marcin Benke\\
+\opiekunuw{Marcin Benke, PhD\\
   Instytut Informatyki\\
 }
 
@@ -69,6 +70,9 @@ conventions from other programming languages in which this feature is present. T
 of this feature will noticeably improve the language's usability in large codebases.
 \end{abstract}
 
+% sadly, abstract in Polish
+% Ta praca przedstawia prototypową implementację składni i semantyki pozwalających na specyfikowanie domyślnych wartości pól typów wpisowych w Haskellu. Proponowana zmiana ma na celu nie mieć wpływu na istniejące programy napisane w Haskellu i minimalny wpływ na składnię nowych programów, dla których rozszerzenie jest uaktywnione. Domyślne wartości są wykorzystywane tylko przy użyciu istniejącej w języku klamrowej składni konstrukcji wpisów. Wprowadzenie tej funkcjonalności zauważalnie zwiększy użyteczność tego języka w dużych projektach informatycznych.
+
 \tableofcontents
 %\listoffigures
 % \listoftables
@@ -92,7 +96,7 @@ and the purely semantic changes to existing constructs (Chapter \ref*{ch:sem}) a
 In all of these, we provide alternative considered solutions and the reasoning behind the final choices.
 We also explain the development process and decisions made when implementing the feature in GHC, 
 the leading compiler of the Haskell language (Chapter \ref*{ch:impl}),
-before ending on the conclusion \ref*{ch:concl};
+and present our conclusions in Chapter \ref*{ch:concl};
 
 
 \chapter{Background}\label{ch:bg}
